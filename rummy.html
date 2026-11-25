@@ -296,6 +296,12 @@ body.notimer .tbar{display:none}
 #btn-hint.off{opacity:.45}
 .gain{color:#f3c2ca}
 @media (max-width:480px){.brand{display:none}.ibtn{width:32px}.conn.ok{display:none}}
+
+#rejoinbar{position:fixed;left:0;right:0;bottom:0;z-index:80;display:flex;gap:10px;align-items:center;justify-content:center;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(20,5,8,.96);border-top:2px solid var(--gold);animation:slideUp .3s}
+#rejoinbar span{font-weight:700}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:none}}
+#hostbar{text-align:center;padding:4px 0 2px}
+#hostbar .btn{opacity:.85}
 </style>
 </head>
 <body>
@@ -408,7 +414,8 @@ body.notimer .tbar{display:none}
         <button class="btn ghost" data-a="right">▶</button>
       </div>
     </div>
-  </section>
+    <div id="hostbar" class="hidden"><button class="btn ghost sm" id="b-kick">🚫 Host: remove a player</button></div>
+</section>
 </main>
 
 <!-- discard pile viewer -->
@@ -420,6 +427,7 @@ body.notimer .tbar{display:none}
   </div>
 </div>
 
+<div id="rejoinbar" class="hidden"><span>⚠ Connection lost</span><button class="btn gold" id="b-rejoin2">▶ Join this room</button></div>
 <div class="modal hidden" id="modal"><div class="mbox" id="mbox"></div></div>
 
 <!-- PeerJS (WebRTC signalling via the free public PeerJS cloud). Falls back to a second CDN. -->
@@ -434,8 +442,27 @@ Em.prototype.emit=function(e,a){(this._h[e]||[]).slice().forEach(function(f){try
 function post(b,p,o){return fetch(b+p,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(o)}).then(function(r){return r.json();});}
 function Conn(peer,room,to){Em.call(this);this.peer=peer;this.room=room;this.to=to;this.open=false;this._es=null;}
 Conn.prototype=Object.create(Em.prototype);
-Conn.prototype.send=function(m){var p=this.peer;post(p.base,'/api/send',p.host?{room:this.room,tok:p.tok,to:this.to,m:m}:{room:this.room,tok:p.tok,m:m}).catch(function(){});};
-Conn.prototype.close=function(){if(this._es){try{this._es.close();}catch(e){}this._es=null;}if(this.open){this.open=false;this.emit('close');}};
+/* Messages are sent ONE AT A TIME, in order, and retried if the network hiccups. Old unsent 'state' / 'ping' messages are replaced by the newest. */
+Conn.prototype.send=function(m){
+  var q=this._q||(this._q=[]);
+  if(m&&(m.t==='state'||m.t==='ping')){for(var i=q.length-1;i>=0;i--)if(q[i]&&q[i].t===m.t)q.splice(i,1);}
+  q.push(m);this._pump();
+};
+Conn.prototype._pump=function(){
+  if(this._busy||!this._q||!this._q.length)return;
+  var self=this,m=this._q.shift(),p=this.peer,tries=0;this._busy=true;
+  var body=p.host?{room:this.room,tok:p.tok,to:this.to,m:m}:{room:this.room,tok:p.tok,m:m};
+  function done(){self._busy=false;self._pump();}
+  (function go(){
+    if(self._dead){done();return;}
+    post(p.base,'/api/send',body).then(function(r){
+      if(r&&r.ok===false&&tries<7){tries++;setTimeout(go,Math.min(1500,300*tries));return;}   // the other side is not there (yet): keep trying for a few seconds
+      done();
+    }).catch(function(){if(tries<6){tries++;setTimeout(go,Math.min(2000,400*tries));}else done();});
+  })();
+};
+Conn.prototype.close=function(){this._dead=true;this._q=[];if(this._es){try{this._es.close();}catch(e){}this._es=null;}if(this.open){this.open=false;this.emit('close');}};
+var RELAY_ERR=['Room not found. Check the code.','The host left the room.','Room expired.'];
 function Peer(id,opts){
   if(id&&typeof id==='object'){opts=id;id=null;}
   Em.call(this);var self=this;
@@ -460,12 +487,12 @@ Peer.prototype._stream=function(){
     var d;try{d=JSON.parse(e.data);}catch(_){return;}
     if(!d.from)return;
     var c=self.conns[d.from],m=d.m||{};
-    if(m.t==='open'){
+    if(m.t==='close'){if(c&&c.open){c.open=false;c.emit('close');}delete self.conns[d.from];return;}
+    if(!c||m.t==='open'){      // new client (or we missed its 'open' while our own stream was reconnecting)
       if(c&&c.open){c.open=false;c.emit('close');}
-      c=new Conn(self,self.room,d.from);c.open=true;self.conns[d.from]=c;self.emit('connection',c);c.emit('open');return;
+      c=new Conn(self,self.room,d.from);c.open=true;self.conns[d.from]=c;self.emit('connection',c);c.emit('open');
+      if(m.t==='open')return;
     }
-    if(!c)return;
-    if(m.t==='close'){if(c.open){c.open=false;c.emit('close');}delete self.conns[d.from];return;}
     c.emit('data',m);
   };
 };
@@ -475,7 +502,7 @@ Peer.prototype.connect=function(id){
   es.onopen=function(){if(!c.open){c.open=true;c.emit('open');}};
   es.onmessage=function(e){
     var d;try{d=JSON.parse(e.data);}catch(_){return;}
-    if(d.t==='err'){try{es.close();}catch(_){}c._es=null;c.open=false;self.emit('error',{type:'peer-unavailable'});return;}
+    if(d.t==='err'&&RELAY_ERR.indexOf(d.m)>=0){try{es.close();}catch(_){}c._es=null;c.open=false;self.emit('error',{type:'peer-unavailable'});return;}   // the relay server says the room is gone (the game's own 'err' messages pass through below)
     if(d.t==='ping')return;
     c.emit('data',d);
   };
@@ -618,10 +645,26 @@ function knockSplit(hand){
 
 let G=null; // authoritative game state (host only)
 
+/* ---- away / removed players ----
+   AWAY    = a human who lost connection: their turns are skipped, their cards sit out (hidden, not playable) until they come back,
+             and at the end of a round ALL their card points count as deadwood for the others. They score 0 while away.
+   REMOVED = kicked by the host: out of the match for good (not dealt in, can't rejoin). */
+const isAway=p=>!p.bot&&p.connected===false&&!p.kicked;
+const isOut=p=>!!p.kicked||isAway(p);
+function nextSeat(from){const P=G.players,n=P.length;for(let k=1;k<=n;k++){const j=(from+k)%n;if(!isOut(P[j]))return j;}return from;}
+function nextLive(from){const P=G.players,n=P.length;for(let k=1;k<=n;k++){const j=(from+k)%n;if(!P[j].kicked)return j;}return from;}
+function skipIfOut(){
+  if(!G||G.phase!=='playing')return false;
+  const cur=G.players[G.turn];if(!cur||!isOut(cur))return false;
+  const nx=nextSeat(G.turn);if(nx===G.turn)return false;
+  log(cur.name+(cur.kicked?' was removed':' is away')+' — turn skipped.');
+  G.turn=nx;G.step='draw';G.picked=null;G.lastDrawn=null;startTurn();return true;
+}
+
 function makeGame(){
   return{phase:'lobby',settings:{target:100,turnTime:60,maxPlayers:MAX_PLAYERS,knockMax:10},botMode:false,dealAt:0,players:[],stock:[],discard:[],melds:[],nextMeld:1,
     turn:0,step:'draw',picked:null,lastDrawn:null,dealer:0,round:1,turnNo:0,turnStartedAt:0,turnEndsAt:null,
-    swapTurn:-1,swapEv:null,swapId:0,reacts:[],reactN:0,
+    swapTurn:-1,swapEv:null,swapId:0,reacts:[],reactN:0,banned:[],
     result:null,matchWinner:null,log:[]};
 }
 function log(m){G.log.push(m);if(G.log.length>80)G.log.shift();}
@@ -639,11 +682,11 @@ function reshuffleIfNeeded(){
 /* 54 cards (52 + 2 jokers). 2 players: 10 cards each, 3-6 players: 7 cards each.
    6 players x 7 = 42, +1 to start the discard pile = 43 -> 11 cards stay in the stock, and the discard pile is reshuffled when it runs out. */
 function dealRound(){
-  const n=G.players.length,per=n===2?10:7;
+  const n=G.players.length,act=G.players.filter(p=>!p.kicked).length,per=act===2?10:7;
   const deck=shuffle([...Array(54).keys()]);
-  G.players.forEach(p=>{p.hand=deck.splice(0,per);p.laidTurn=null;});
+  G.players.forEach(p=>{p.hand=p.kicked?[]:deck.splice(0,per);p.laidTurn=null;});
   G.discard=[deck.pop()];G.stock=deck;G.melds=[];G.nextMeld=1;G.swapTurn=-1;
-  G.turn=(G.dealer+1)%n;G.step='draw';G.picked=null;G.lastDrawn=null;G.result=null;G.phase='playing';G.dealAt=Date.now();
+  G.turn=nextSeat(G.dealer);G.step='draw';G.picked=null;G.lastDrawn=null;G.result=null;G.phase='playing';G.dealAt=Date.now();
   log('Round '+G.round+' — '+G.players[G.turn].name+' starts.');
   startTurn();
 }
@@ -665,19 +708,23 @@ function endRound(winner,reason){
   const P=G.players,n=P.length;
   G.turnEndsAt=null;G.phase='roundover';
   const detail=P.map((p,i)=>{
+    if(p.kicked)return{groups:[],laid:[],dead:[],dw:0,off:'removed'};
     if(winner!==null&&i===winner)return{groups:[],laid:[],dead:p.hand.slice(),dw:sumPts(p.hand)};
+    if(isAway(p))return{groups:[],laid:[],dead:p.hand.slice(),dw:sumPts(p.hand),off:'away'};   // offline: EVERY card counts, nothing can be melded
     const b=bestDeadwood(p.hand,G.melds);
     return{groups:b.groups,laid:b.laid.map(x=>x.card),dead:b.dead,dw:b.dw};
   });
   const gains=P.map(()=>0),lines=[],nm=i=>P[i].name;
   const nj=i=>detail[i].dead.filter(isJoker).length;
-  const dwTxt=i=>detail[i].dw+' pts'+(nj(i)?' (incl. '+nj(i)+' joker'+(nj(i)>1?'s':'')+' × 15)':'');
+  const dwTxt=i=>detail[i].dw+' pts'+(detail[i].off==='away'?' (away — every card counts)':'')+(nj(i)?' (incl. '+nj(i)+' joker'+(nj(i)>1?'s':'')+' × 15)':'');
+  const opp=[];
+  if(winner!==null)for(let k=1;k<n;k++){const i=(winner+k)%n;if(!P[i].kicked)opp.push(i);}
   let scorer=winner,kind='stalemate',bonus=0;
   if(winner!==null){
     const K=detail[winner].dw;
     if(reason==='out'){
       kind='gin';let g=0;
-      for(let i=0;i<n;i++)if(i!==winner){g+=detail[i].dw;lines.push(nm(i)+' is left with '+dwTxt(i));}
+      opp.forEach(i=>{g+=detail[i].dw;lines.push(nm(i)+' is left with '+dwTxt(i));});
       lines.push('Opponents\' deadwood total: '+g);
       bonus=GIN_BONUS;lines.push('Gin bonus: +'+GIN_BONUS);
       const w=P[winner];
@@ -686,20 +733,20 @@ function endRound(winner,reason){
       lines.push(nm(winner)+': '+g+' + '+bonus+' = +'+gains[winner]);
     }else{
       let under=-1;
-      for(let k=1;k<n;k++){const i=(winner+k)%n;if(detail[i].dw<=K&&(under<0||detail[i].dw<detail[under].dw))under=i;}
+      opp.forEach(i=>{if(!detail[i].off&&detail[i].dw<=K&&(under<0||detail[i].dw<detail[under].dw))under=i;});   // an away player can't undercut
       if(under>=0){
         kind='undercut';scorer=under;bonus=UNDERCUT_BONUS;gains[under]=(K-detail[under].dw)+bonus;
         lines.push(nm(winner)+' knocked with a minus of '+K+'.');
         lines.push(nm(under)+' has '+dwTxt(under)+' → '+(K-detail[under].dw)+' + undercut bonus '+bonus+' = +'+gains[under]);
       }else{
         kind='knock';
-        const others=[];let total=0;
-        for(let k=1;k<n;k++){const i=(winner+k)%n;others.push(i);total+=detail[i].dw;}
+        let total=0;opp.forEach(i=>{total+=detail[i].dw;});
         lines.push(nm(winner)+' (knocker) kept '+detail[winner].dead.map(cardName).join(' ')+' = '+K+' pts (the minus)');
-        lines.push('Deadwood left: '+others.map(i=>nm(i)+' '+dwTxt(i)).join(' · ')+' → total '+total);
-        gains[winner]=total-K;
-        lines.push(nm(winner)+' (knocker): '+total+' − '+K+' = +'+gains[winner]);
-        others.forEach(j=>{
+        lines.push('Deadwood left: '+opp.map(i=>nm(i)+' '+dwTxt(i)).join(' · ')+' → total '+total);
+        const rawK=total-K;gains[winner]=Math.max(0,rawK);    // can only be below 0 when an away player's cards are worth less than the minus
+        lines.push(nm(winner)+' (knocker): '+total+' − '+K+' = '+(rawK<0?rawK+' → 0':'+'+rawK));
+        opp.forEach(j=>{
+          if(detail[j].off){gains[j]=0;lines.push(nm(j)+' (away): scores 0 — their cards are counted against them');return;}
           const oth=K+total-detail[j].dw,raw=oth-detail[j].dw;
           gains[j]=Math.max(0,raw);
           lines.push(nm(j)+': others\' deadwood ('+K+' + '+(total-detail[j].dw)+' = '+oth+') − own '+detail[j].dw+' = '+(raw<0?raw+' → 0':'+'+raw));
@@ -721,9 +768,9 @@ function endRound(winner,reason){
   else if(kind==='gin')log(P[scorer].name+' went out (GIN) and scored '+gs+'.');
   else if(kind==='knock')log(P[scorer].name+' knocked and scored '+gs+' (the others scored too).');
   else log(P[scorer].name+' UNDERCUT the knock and scored '+gs+'.');
-  const max=Math.max(...P.map(p=>p.score));
+  const live=P.filter(p=>!p.kicked),max=Math.max(...live.map(p=>p.score));
   if(max>=G.settings.target){
-    const tops=P.filter(p=>p.score===max);
+    const tops=live.filter(p=>p.score===max);
     if(tops.length===1){G.phase='matchover';G.matchWinner=P.indexOf(tops[0]);}
   }
 }
@@ -769,7 +816,7 @@ function doSwap(seat,card,target){
   const p=G.players[seat];
   if(!p.swap)return'You do not have a Swap power card.';
   if(!Number.isInteger(target)||target<0||target>=G.players.length||target===seat)return'Choose an opponent to swap with.';
-  const t=G.players[target];if(!t.hand.length)return'That player has no cards.';
+  const t=G.players[target];if(!t.hand.length||isOut(t))return'That player is away or has no cards.';
   const ch=checkHand(seat,[card]);if(ch)return ch;
   const k=rand(t.hand.length),got=t.hand[k];
   t.hand[k]=card;p.hand[p.hand.indexOf(card)]=got;
@@ -819,7 +866,7 @@ function doDiscard(seat,card){
   removeCards(p,[card]);G.discard.push(card);
   log(p.name+' discarded '+cardName(card)+'.');
   if(p.hand.length===0){endRound(seat,'out');return null;}
-  G.turn=(G.turn+1)%G.players.length;G.step='draw';G.picked=null;G.lastDrawn=null;startTurn();
+  G.turn=nextSeat(G.turn);G.step='draw';G.picked=null;G.lastDrawn=null;startTurn();
   return null;
 }
 /* Call 2 / Call 3 (knock): you hold 2 or 3 cards; your HIGHEST card goes to the discard pile, the rest is your "minus". */
@@ -878,7 +925,7 @@ function botPlan(seat){
     // maybe use the Swap power card: give away our worst dead card for a random one
     if(p.swap){
       const bd=bestDeadwood(h,G.melds),dead=bd.dead.filter(c=>!isJoker(c)).sort((a,b)=>ptsOf(b)-ptsOf(a));
-      const opp=G.players.map((q,i)=>i).filter(i=>i!==seat&&G.players[i].hand.length);
+      const opp=G.players.map((q,i)=>i).filter(i=>i!==seat&&G.players[i].hand.length&&!isOut(G.players[i]));
       if(dead.length&&opp.length&&rand(100)<45)return{t:'swap',card:dead[0],target:opp[rand(opp.length)]};
     }
     const base=bestDeadwood(h,G.melds).dw,dl=G.discard.length;
@@ -936,7 +983,7 @@ function handleAction(token,msg){
       resetMatch();dealRound();return null;
     case'next':
       if(!host||G.phase!=='roundover')return'Only the host can start the next round.';
-      G.dealer=(G.dealer+1)%G.players.length;G.round++;dealRound();return null;
+      G.dealer=nextLive(G.dealer);G.round++;dealRound();return null;
     case'rematch':
       if(!host||G.phase!=='matchover')return'Only the host can start a new match.';
       resetMatch();dealRound();return null;
@@ -946,6 +993,9 @@ function handleAction(token,msg){
       while(G.players.length-1>n)G.players.pop();
       while(G.players.length-1<n)addBot();
       G.settings.maxPlayers=n+1;return null;}
+    case'kick':{
+      if(!host)return'Only the host can remove players.';
+      return kickPlayer(msg.seat);}
     case'draw':return doDraw(seat,msg.from,msg.count);
     case'meld':return doMeld(seat,msg.cards);
     case'layoff':return doLayoff(seat,msg.meldId,msg.cards);
@@ -963,10 +1013,30 @@ function handleAction(token,msg){
   return null;
 }
 
+/* Host removes a player: they are out of the match for good (not dealt in, can't rejoin). */
+function kickPlayer(t){
+  const P=G.players;
+  if(!Number.isInteger(t)||t<=0||t>=P.length)return'Pick a player to remove.';
+  const p=P[t];if(p.kicked)return null;
+  G.banned=(G.banned||[]).concat(p.id);
+  if(G.phase==='lobby'){P.splice(t,1);return null;}
+  G.discard.unshift(...p.hand);      // their cards go to the bottom of the discard pile so the deck stays whole
+  p.kicked=true;p.hand=[];p.swap=0;p.connected=false;
+  log('🚫 '+p.name+' was removed from the match by the host.');
+  const act=P.filter(q=>!q.kicked);
+  if(act.length<2){
+    G.phase='matchover';G.matchWinner=P.indexOf(act[0]);G.turnEndsAt=null;
+    G.result={kind:'stalemate',winner:null,knocker:null,gained:0,bonus:0,gains:P.map(()=>0),pts:P.map(()=>0),detail:P.map(()=>({groups:[],laid:[],dead:[],dw:0})),
+      lines:['Everyone else was removed — '+act[0].name+' wins the match!'],streaks:P.map(q=>q.streak||0)};
+    return null;
+  }
+  if(G.phase==='playing'&&G.turn===t){if(!skipIfOut()){G.turnEndsAt=null;}}
+  return null;
+}
 /* What a given player is allowed to see (opponents' hands are hidden). The whole discard pile is public. */
 function viewFor(seat){
   return{t:'state',you:seat,phase:G.phase,settings:G.settings,round:G.round,dealer:G.dealer,botMode:G.botMode,
-    players:G.players.map(p=>({name:p.name,count:p.hand.length,score:p.score,connected:p.connected,bot:!!p.bot,
+    players:G.players.map(p=>({name:p.name,count:isOut(p)?0:p.hand.length,score:p.score,connected:p.connected,away:isAway(p),kicked:!!p.kicked,bot:!!p.bot,
       swap:p.swap?1:0,streak:p.streak||0})),
     hand:G.players[seat].hand.slice(),stock:G.stock.length,discard:G.discard.slice(),discardN:G.discard.length,
     melds:G.melds,turn:G.turn,step:G.step,picked:G.picked,turnNo:G.turnNo,
@@ -991,7 +1061,7 @@ const HOST_KEY='rr.host.v1',CLIENT_KEY='rr.client.v1';
 let peer=null,isHost=false,myToken=null,myName='',roomCode='';
 let hostConn=null,conns={},seen={};            // client: hostConn ; host: conns[token]
 let view=null,prevView=null,leaving=false,everJoined=false,attempts=0;
-let reconnTimer=null,pingIv=null,hostIv=null,watchIv=null,lastMsgAt=0;
+let reconnTimer=null,pingIv=null,hostIv=null,watchIv=null,lastMsgAt=0,reconnTry=0;
 let timerBase={left:0,at:0},lastTurnNo=-1,modalKind=null,endKey='',modalTimer=null;
 let botIv=null,botAt=0;
 let ui={selected:new Set(),order:[],armed:{a:null,t:0},swapMode:false,hints:(function(){try{return localStorage.getItem('rr.hints')!=='0';}catch(e){return true;}})()};
@@ -1012,6 +1082,7 @@ function show(id){
   });
 }
 function setConn(state){
+  const rb=$('#rejoinbar');if(rb)rb.classList.toggle('hidden',!(state!=='ok'&&!isHost&&view));
   const c=$('#conn');
   const map={ok:['● online','ok'],connecting:['connecting…','bad'],reconnecting:['reconnecting…','bad']};
   const [t,cl]=map[state]||map.ok;c.textContent=isHost&&state==='ok'?(view&&view.botMode?'● offline':'● hosting'):t;c.className='conn '+cl;
@@ -1095,11 +1166,20 @@ function onClientConn(conn){
       const token=String(msg.token||'').slice(0,40);
       if(!token)return;
       let name=String(msg.name||'Player').trim().replace(/\s+/g,' ').slice(0,14)||'Player';
-      const seat=G.players.findIndex(p=>p.id===token);
+      if((G.banned||[]).includes(token)){reject(conn,'You were removed from this room by the host.');return;}
+      let seat=G.players.findIndex(p=>p.id===token);
+      if(seat<0&&G.phase!=='lobby'){      // lost your token (cleared browser data / new device)? the same NAME can take back an away seat
+        const pi=G.players.findIndex((p,i)=>i>0&&isAway(p)&&!conns[p.id]&&p.name.toLowerCase()===name.toLowerCase());
+        if(pi>0){G.players[pi].id=token;seat=pi;}
+      }
       if(seat===0){reject(conn,'That seat belongs to the host.');return;}
       if(seat>0){
+        const pl=G.players[seat];
+        if(pl.kicked){reject(conn,'You were removed from this room by the host.');return;}
         const old=conns[token];conns[token]=conn;if(old&&old!==conn){try{old.close();}catch(e){}}
-        tok=token;G.players[seat].connected=true;G.players[seat].discAt=0;
+        if(pl.connected===false&&G.phase!=='lobby')log('✅ '+pl.name+' is back in the game!');
+        tok=token;pl.connected=true;pl.discAt=0;
+        if(G.phase==='playing'&&G.turn===seat&&!G.turnEndsAt&&G.settings.turnTime){G.turnStartedAt=Date.now();G.turnEndsAt=G.turnStartedAt+G.settings.turnTime*1000;}
       }else if(G.phase==='lobby'&&G.players.length<G.settings.maxPlayers){
         addPlayer(token,name);conns[token]=conn;tok=token;
       }else{reject(conn,G.phase==='lobby'?'This room is full.':'This game has already started.');return;}
@@ -1115,19 +1195,21 @@ function onClientConn(conn){
     delete conns[tok];
     const i=G.players.findIndex(p=>p.id===tok);if(i<0)return;
     if(G.phase==='lobby')G.players.splice(i,1);
-    else{G.players[i].connected=false;G.players[i].discAt=Date.now();}
+    else if(!G.players[i].kicked){G.players[i].connected=false;G.players[i].discAt=Date.now();log('⚠ '+G.players[i].name+' disconnected — their cards sit out until they return.');skipIfOut();}
     broadcast();
   };
   conn.on('close',gone);conn.on('error',gone);
 }
 function reject(conn,reason){try{conn.send({t:'reject',reason});}catch(e){}setTimeout(()=>{try{conn.close();}catch(e){}},400);}
 function processAction(token,msg){
+  const kt=(msg&&msg.t==='kick'&&G&&G.players[0]&&token===G.players[0].id&&G.players[msg.seat])?G.players[msg.seat].id:null;
   const err=handleAction(token,msg);
   if(err){
     if(token===myToken)toast(err);
     else{const c=conns[token];if(c&&c.open){try{c.send({t:'err',m:err});}catch(e){}}}
     return;
   }
+  if(kt&&conns[kt]){const c=conns[kt];delete conns[kt];reject(c,'You were removed from this room by the host.');}
   broadcast();
 }
 function broadcast(){
@@ -1139,15 +1221,16 @@ function saveHost(){try{localStorage.setItem(HOST_KEY,JSON.stringify({code:roomC
 function hostTick(){
   if(!G||G.phase!=='playing')return;
   const now=Date.now(),p=G.players[G.turn];
-  if(G.turnEndsAt&&now>=G.turnEndsAt){autoPlay(G.turn,'timeout');broadcast();return;}
-  if(!p.connected&&p.discAt&&now-p.discAt>3000&&now-G.turnStartedAt>1500){autoPlay(G.turn,'away');broadcast();}
+  if(skipIfOut()){broadcast();return;}                       // an away / removed player's turn is skipped
+  if(isOut(p)){if(G.turnEndsAt){G.turnEndsAt=null;broadcast();}return;}   // nobody else can play: wait for someone to come back
+  if(G.turnEndsAt&&now>=G.turnEndsAt){autoPlay(G.turn,'timeout');broadcast();}
 }
 function watchClients(){   // drop clients that stopped answering pings (silent disconnects)
   if(!G)return;const now=Date.now();
   for(const tok of Object.keys(conns)){
     if(now-(seen[tok]||0)>15000){const c=conns[tok];try{c.close();}catch(e){}
       if(conns[tok]===c){delete conns[tok];const i=G.players.findIndex(p=>p.id===tok);
-        if(i>0){if(G.phase==='lobby')G.players.splice(i,1);else{G.players[i].connected=false;G.players[i].discAt=now;}broadcast();}}}
+        if(i>0){if(G.phase==='lobby')G.players.splice(i,1);else if(!G.players[i].kicked){G.players[i].connected=false;G.players[i].discAt=now;log('⚠ '+G.players[i].name+' disconnected — their cards sit out until they return.');skipIfOut();}broadcast();}}}
   }
 }
 
@@ -1181,8 +1264,20 @@ function createClientPeer(){
 function scheduleReconnect(){
   if(leaving||isHost||reconnTimer)return;
   if(view)setConn('reconnecting');
-  reconnTimer=setTimeout(()=>{reconnTimer=null;connectToHost();},2500);
+  const d=Math.min(4000,700*Math.pow(1.5,reconnTry++));      // 0.7s, 1s, 1.6s, 2.4s ... max 4s
+  reconnTimer=setTimeout(()=>{reconnTimer=null;connectToHost();},d);
 }
+/* Reconnect RIGHT NOW (phone woke up, internet came back, or the player tapped “Join this room”). */
+function kickReconnect(){
+  if(leaving||isHost||!roomCode)return;
+  if(hostConn&&hostConn.open&&Date.now()-lastMsgAt<9000)return;
+  if(hostConn){const x=hostConn;hostConn=null;try{x.close();}catch(e){}}
+  clearTimeout(reconnTimer);reconnTimer=null;reconnTry=0;attempts=0;
+  if(view)setConn('reconnecting');
+  connectToHost();
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)kickReconnect();});
+window.addEventListener('online',kickReconnect);
 function connectToHost(){
   if(leaving||isHost)return;
   if(hostConn&&hostConn.open)return;
@@ -1197,8 +1292,8 @@ function connectToHost(){
     pingIv=setInterval(()=>{
       if(!hostConn||!hostConn.open)return;
       try{hostConn.send({t:'ping'});}catch(e){}
-      if(Date.now()-lastMsgAt>14000){const x=hostConn;hostConn=null;try{x.close();}catch(e){}scheduleReconnect();}
-    },4000);
+      if(Date.now()-lastMsgAt>10000){const x=hostConn;hostConn=null;try{x.close();}catch(e){}scheduleReconnect();}
+    },3000);
   });
   c.on('data',onHostMsg);
   const lost=()=>{if(hostConn===c){hostConn=null;scheduleReconnect();}};
@@ -1211,6 +1306,7 @@ function onHostMsg(msg){
   lastMsgAt=Date.now();
   if(msg.t==='state'){
     if(!everJoined){everJoined=true;attempts=0;}
+    reconnTry=0;
     localStorage.setItem(CLIENT_KEY,JSON.stringify({code:roomCode,token:myToken,name:myName,at:Date.now()}));
     setView(msg);
   }else if(msg.t==='err')toast(msg.m);
@@ -1404,7 +1500,7 @@ function setView(nv){prevView=view;view=nv;try{onView();}catch(e){console.error(
 function resetTable(){
   handEls.clear();meldEls.clear();oppEls.clear();pendingSrc.clear();
   $('#hand').innerHTML='';$('#melds').innerHTML='';$('#opps').innerHTML='';$('#discard-slot').innerHTML='';$('#stock-slot').innerHTML='';
-  oppKey='';lastDiscKey=null;lastStock=-1;lastStockKey='';lastScore=null;lastTurnNo=-1;endKey='';lastSwapId=null;lastReactId=null;ui.swapMode=false;
+  oppKey='';lastDiscKey=null;lastStock=-1;lastStockKey='';lastScore=null;lastTurnNo=-1;endKey='';lastSwapId=null;lastReactId=null;lastConn=null;ui.swapMode=false;
   ui.order=[];ui.selected.clear();ui.armed={a:null,t:0};
   document.body.classList.remove('myturn');
 }
@@ -1513,6 +1609,7 @@ function srcFor(id,mover){
 function renderGame(v,prev,newRound){
   document.body.classList.toggle('notimer',!v.settings.turnTime);
   if(!(canAct()&&v.step==='draw'&&v.players[v.you].swap))ui.swapMode=false;
+  $('#hostbar').classList.toggle('hidden',!(isHost&&v.phase!=='matchover'));
   $('#g-roomlbl').textContent=v.botMode?'':'Room ';$('#g-code').textContent=v.botMode?'vs bots':roomCode;$('#g-round').textContent=v.round;
   const ev=diffEvents(prev,v);
   const n=v.players.length,SH=newRound?900:0;
@@ -1571,7 +1668,7 @@ function renderOpps(v,ev,deal){
     el.classList.toggle('off',!p.connected);
     el.classList.toggle('pick',!!ui.swapMode);
     el.querySelector('.av').textContent=p.bot?'🤖':(p.name[0]||'?').toUpperCase();
-    el.querySelector('.oname').innerHTML=nameHTML(p,i,v)+(p.connected?'':' <em>(away)</em>');
+    el.querySelector('.oname').innerHTML=nameHTML(p,i,v)+(p.kicked?' <em>(removed)</em>':p.connected?'':' <em>(away)</em>');
     el.querySelector('.osc').innerHTML=p.score+' pts · '+p.count+' card'+(p.count===1?'':'s')+(p.swap?' · ':'')+(p.swap?'<span class="sw" title="Has a Swap power card">🔄</span>':'');
     const fan=el.querySelector('.ofan'),want=Math.min(p.count,12);
     while(fan.children.length>want)fan.lastChild.remove();
@@ -2012,6 +2109,13 @@ function grpHTML(cls,cards,label,r0,start){
 }
 function renderModal(){
   const v=view,box=$('#mbox');if(!v)return;let h='';
+  if(modalKind==='kick'){
+    const rows=v.players.map((p,i)=>({p,i})).filter(({p,i})=>i!==0&&!p.kicked);
+    h=`<button class="btn ghost mclose" data-x>✕</button><h2>🚫 Remove a player</h2><p style="margin:0 0 10px;opacity:.85">A removed player is out of the match for good and can't rejoin. Tap <b>Remove</b> twice to confirm.</p>`+(rows.length?rows.map(({p,i})=>`<div class="rrow" style="animation:none"><div class="rn"><span>${p.bot?'🤖 ':''}${esc(p.name)}${p.away?' <small>(away)</small>':''}</span><button class="btn red sm" data-kick="${i}">Remove</button></div></div>`).join(''):'<p>There is nobody else to remove.</p>');
+    const k0='kick'+rows.map(r=>r.i).join(',');
+    if(box.dataset.k!==k0||box.dataset.h!==h){box.dataset.k=k0;box.dataset.h=h;box.innerHTML=h;}
+    $('#modal').classList.remove('hidden');return;
+  }
   if(modalKind==='rules'){
     h=`<button class="btn ghost mclose" data-x>✕</button><h2>📖 Rules</h2>
     <p><b>Goal:</b> get rid of your cards by forming melds, or end the round early by <b>calling</b> when you are down to 1–3 cards. First to the target score wins the match.</p>
@@ -2044,12 +2148,16 @@ function renderModal(){
     <li>Use it at the <b>start of your turn, before drawing</b>: tap <b>Swap</b>, select one of your cards, tap an opponent. You give that card and get a <b>random</b> card from them — blind. Everyone gets a message that a swap happened (no cards revealed).</li>
     <li>On a turn you swap you can't go out or knock. The token is used up after one swap.</li></ul>
     <h3>Fun stuff</h3><ul><li>🔥 shows next to a player who has won 2+ rounds in a row · the <b>D</b> chip marks the dealer · 😀 sends a quick reaction · 💡 turns the hint glow (cards close to a meld) on or off.</li></ul>
-    <h3>Timer</h3><ul><li>If the turn timer runs out (or a player disconnects) the game auto-plays: draws from the stock and discards.</li></ul>
+    <h3>Disconnects &amp; the host</h3><ul>
+    <li>If a player drops out, their turns are skipped and their cards <b>sit out</b> (hidden and not playable) until they come back with <b>Join this room</b> — they can return at any time, even in the middle of a round.</li>
+    <li>While someone is away, if another player knocks or goes out, the away player's <b>whole hand counts as points</b> (no melds) in the total, and the away player scores 0.</li>
+    <li>The host can remove any player with <b>🚫 Host: remove a player</b>. A removed player is out for good.</li></ul>
+    <h3>Timer</h3><ul><li>If a connected player runs out of time the game auto-plays for them: it draws from the stock and discards.</li></ul>
     <h3>Controls</h3><ul><li>Tap to select · ◀ ▶ move a selected card · Sort buttons · On desktop you can also drag cards · 🔊 toggles sound.</li></ul>`;
   }else if(modalKind==='scores'){
     const t=v.settings.target,order=v.players.map((p,i)=>({p,i})).sort((a,b)=>b.p.score-a.p.score);
     h=`<button class="btn ghost mclose" data-x>✕</button><h2>🏆 Scoreboard</h2><p style="margin:0;opacity:.8">Round ${v.round} · first to ${t} pts wins</p>
-    ${order.map(({p,i})=>`<div class="rrow" style="animation:none"><div class="rn"><span>${i===0?'👑 ':''}${esc(p.name)}${i===v.you?' <small>(you)</small>':''}${p.connected?'':' <small>(away)</small>'}</span><b>${p.score}</b></div><div class="bar"><i style="width:${Math.min(100,p.score/t*100)}%"></i></div></div>`).join('')}
+    ${order.map(({p,i})=>`<div class="rrow" style="animation:none"><div class="rn"><span>${i===0?'👑 ':''}${esc(p.name)}${i===v.you?' <small>(you)</small>':''}${p.kicked?' <small>(removed)</small>':p.connected?'':' <small>(away)</small>'}</span><b>${p.score}</b></div><div class="bar"><i style="width:${Math.min(100,p.score/t*100)}%"></i></div></div>`).join('')}
     <h3>Game log</h3><div class="logl">${v.log.slice().reverse().map(esc).join('<br>')}</div>`;
   }else if(modalKind==='round'){
     const r=v.result;if(!r)return;
@@ -2085,12 +2193,17 @@ function renderModal(){
   }
   $('#modal').classList.remove('hidden');
 }
+let kickArm={seat:-1,at:0};
 $('#modal').addEventListener('click',e=>{
+  const kk=e.target.closest('[data-kick]');
+  if(kk){const si=+kk.dataset.kick;if(kickArm.seat===si&&Date.now()-kickArm.at<4000){kickArm={seat:-1,at:0};closeModal();send({t:'kick',seat:si});}else{kickArm={seat:si,at:Date.now()};kk.textContent='Tap again to confirm';}return;}
   const x=e.target.closest('[data-x]'),d=e.target.closest('[data-do]');
   if(x||(e.target.id==='modal'&&modalKind!=='round'))closeModal();
   if(d){const a=d.dataset.do;if(a==='next')send({t:'next'});else if(a==='rematch')send({t:'rematch'});else if(a==='leave')doLeave();}
 });
 function doLeave(){if(confirm(isHost&&!(view&&view.botMode)?'You are the host — leaving closes the room for everyone. Leave?':'Leave the game?'))leaveGame('');}
+$('#b-kick').onclick=()=>openModal('kick');
+$('#b-rejoin2').onclick=()=>kickReconnect();
 $('#btn-scores').onclick=()=>openModal('scores');
 $('#btn-rules').onclick=()=>openModal('rules');
 $('#btn-leave').onclick=doLeave;
@@ -2146,7 +2259,16 @@ function reactFx(seat,e){
   s.className='floaty';s.textContent=e;s.style.left=(r.left+r.width/2-16+(Math.random()*40-20))+'px';s.style.top=(r.top-4)+'px';
   document.body.appendChild(s);setTimeout(()=>s.remove(),2000);
 }
+let lastConn=null;
 function effects(v){
+  const cs=v.players.map(p=>p.kicked?2:(p.connected?0:1));
+  if(lastConn&&lastConn.length===cs.length)cs.forEach((c,i)=>{
+    if(i===v.you)return;const p=v.players[i];
+    if(lastConn[i]===0&&c===1)toast('⚠ '+p.name+' disconnected — their cards sit out until they return');
+    else if(lastConn[i]===1&&c===0)toast('✅ '+p.name+' is back!');
+    else if(lastConn[i]!==2&&c===2)toast('🚫 '+p.name+' was removed by the host');
+  });
+  lastConn=cs;
   if(v.swapEv){
     if(lastSwapId===null)lastSwapId=v.swapEv.id;
     else if(v.swapEv.id!==lastSwapId){lastSwapId=v.swapEv.id;swapFx(v.swapEv);}
@@ -2185,7 +2307,7 @@ function refreshHome(){
     }
     const c=JSON.parse(localStorage.getItem(CLIENT_KEY)||'null');
     if(c&&c.code&&Date.now()-c.at<6*3600e3){
-      box.insertAdjacentHTML('beforeend',`<button class="btn ghost" id="b-rejoin">↩ Rejoin room ${esc(c.code)}</button>`);
+      box.insertAdjacentHTML('beforeend',`<button class="btn gold" id="b-rejoin">▶ Join this room (${esc(c.code)})</button>`);
       $('#b-rejoin').onclick=()=>{$('#in-name').value=c.name;joinRoom(c.code,c.token);};
     }
   }catch(e){}
