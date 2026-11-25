@@ -268,6 +268,34 @@ body.notimer .tbar{display:none}
 
 @media (max-height:700px){ :root{--cw:clamp(40px,10vw,60px)} #hand{padding-top:14px} .ofan{height:calc(var(--ow)*1.1)} }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* ---- v3: jokers, dealer chip, fire streak, swap token, hints, reactions, 6-player layout ---- */
+.card.joker{background:linear-gradient(160deg,#2b0a10,#0b0305);color:#ffd166;border:1px solid rgba(255,209,102,.55)}
+.card.joker .cs{font-size:1.7em;opacity:1}
+.card.joker .cn{font-size:.7em;letter-spacing:.5px}
+.card .jrep{position:absolute;left:0;right:0;bottom:2px;text-align:center;font-size:calc(var(--cw)*.2);font-weight:900;color:#ffd166;text-shadow:0 1px 2px #000;pointer-events:none}
+.dchip{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:#fff;color:#1a0507;font-size:10px;font-weight:900;margin-left:5px;box-shadow:0 0 0 2px var(--gold);vertical-align:1px}
+.fire{background:linear-gradient(90deg,#ff9a3c,#ff3d3d,#ffd23f,#ff3d3d);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:fireflow 1.1s linear infinite;filter:drop-shadow(0 0 5px rgba(255,100,40,.95));font-weight:900}
+@keyframes fireflow{to{background-position:200% 0}}
+.sw{display:inline-block;margin-left:4px;filter:drop-shadow(0 0 4px #fff);animation:pulse 1.3s infinite}
+.cl{font-size:11px;opacity:.9;margin-left:6px;white-space:nowrap}
+.mx{display:inline-flex;align-items:center}
+#opps.many{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;--ow:clamp(12px,3.3vw,18px)}
+#opps.many .opp{max-width:none;padding:4px 6px}
+#opps.many .avr{width:28px;height:28px;padding:2px}
+#opps.many .oname{font-size:12px}
+#opps.many .osc{font-size:10px}
+.opp.pick{border-color:#fff;cursor:pointer;animation:pulse .9s infinite;box-shadow:0 0 16px rgba(255,255,255,.7)}
+#hand .card.near:not(.sel){box-shadow:0 0 0 2px #ffd166,0 0 14px 3px rgba(255,209,102,.8);animation:nearGlow 1.6s ease-in-out infinite}
+@keyframes nearGlow{50%{box-shadow:0 0 0 2px #ffd166,0 0 20px 6px rgba(255,209,102,.95)}}
+#reactbar{position:absolute;right:8px;top:46px;z-index:30;display:flex;gap:2px;flex-wrap:wrap;max-width:92vw;background:rgba(0,0,0,.85);border:1px solid rgba(255,255,255,.22);border-radius:14px;padding:5px;animation:fadeIn .2s}
+#reactbar button{font-size:24px;background:none;border:0;cursor:pointer;padding:3px 6px;border-radius:9px}
+#reactbar button:active{background:rgba(255,255,255,.2);transform:scale(.9)}
+.floaty{position:fixed;z-index:90;font-size:32px;pointer-events:none;animation:floatUp 1.9s ease-out forwards}
+@keyframes floatUp{0%{opacity:0;transform:translateY(0) scale(.5)}15%{opacity:1;transform:translateY(-14px) scale(1.2)}100%{opacity:0;transform:translateY(-90px) scale(1)}}
+#btn-hint.off{opacity:.45}
+.gain{color:#f3c2ca}
+@media (max-width:480px){.brand{display:none}.ibtn{width:32px}.conn.ok{display:none}}
 </style>
 </head>
 <body>
@@ -283,7 +311,7 @@ body.notimer .tbar{display:none}
   <div class="wrap">
     <div class="hero" id="hero"></div>
     <h1 class="logo"><b>♠</b> Rummy <span>Royale</span> <b>♥</b></h1>
-    <p class="sub">Online multiplayer Rummy · 2–4 players · no sign-up</p>
+    <p class="sub">Online multiplayer Rummy · 2–6 players · no sign-up</p>
     <div class="panel">
       <label for="in-name">Your name</label>
       <input id="in-name" maxlength="14" placeholder="e.g. Alex" autocomplete="nickname">
@@ -294,7 +322,7 @@ body.notimer .tbar{display:none}
       <div style="height:8px"></div>
       <button id="b-join" class="btn" style="width:100%">Join room</button>
       <div class="or">— or play offline against the computer —</div>
-      <div class="grid2"><select id="in-bots" aria-label="Number of bots"><option value="1">1 bot</option><option value="2">2 bots</option><option value="3">3 bots</option></select>
+      <div class="grid2"><select id="in-bots" aria-label="Number of bots"><option value="1">1 bot</option><option value="2">2 bots</option><option value="3">3 bots</option><option value="4">4 bots</option><option value="5">5 bots</option></select>
         <button id="b-bots" class="btn gold">🤖 Play vs bots</button></div>
       <div id="resume" class="resume"></div>
       <div id="home-msg" class="msg"></div>
@@ -307,7 +335,7 @@ body.notimer .tbar{display:none}
         <li><b>Friends:</b> open this game, type a name and the code → <b>Join room</b>.</li>
         <li>When everyone is in, the host taps <b>Start game</b>.</li>
       </ol>
-      <p style="margin:8px 0 0"><b>No friend around?</b> Choose how many bots (1–3) and tap <b>Play vs bots</b> — it works offline.</p>
+      <p style="margin:8px 0 0"><b>No friend around?</b> Choose how many bots (1–5) and tap <b>Play vs bots</b> — it works offline.</p>
       <p style="opacity:.75;margin:8px 0 0">The host's device runs the game — the host must keep this page open.</p>
     </details>
   </div>
@@ -343,11 +371,14 @@ body.notimer .tbar{display:none}
     <span class="room"><span id="g-roomlbl">Room </span><b id="g-code"></b> · Round <b id="g-round">1</b></span>
     <span class="spacer"></span>
     <span class="conn" id="conn"></span>
+    <button class="ibtn" id="btn-hint" title="Hints on/off">💡</button>
+    <button class="ibtn" id="btn-react" title="Reactions">😀</button>
     <button class="ibtn" id="btn-sound" title="Sound on/off">🔊</button>
     <button class="ibtn" id="btn-scores" title="Scoreboard">🏆</button>
     <button class="ibtn" id="btn-rules" title="Rules">❓</button>
     <button class="ibtn" id="btn-leave" title="Leave">⎋</button>
   </header>
+  <div id="reactbar" class="hidden"></div>
   <section id="opps"></section>
   <section id="center">
     <div class="pile" id="stock"><div class="slot" id="stock-slot"></div><small id="stock-n"></small></div>
@@ -356,10 +387,11 @@ body.notimer .tbar{display:none}
   </section>
   <section id="melds"></section>
   <section id="me">
-    <div id="me-bar"><div class="avr" data-seat="-1"><div class="av">?</div></div><span class="mname"></span><span class="msc"></span><span class="chip"></span><div class="tbar" data-seat="-1"><i></i><b></b></div></div>
+    <div id="me-bar"><div class="avr" data-seat="-1"><div class="av">?</div></div><span class="mname"></span><span class="mx"></span><span class="msc"></span><span class="chip"></span><div class="tbar" data-seat="-1"><i></i><b></b></div></div>
     <div id="hand"></div>
     <div id="hint"></div>
     <div id="actions">
+      <div class="arow hidden" id="swaprow"><button class="btn gold" data-a="swap">🔄 Swap power card</button></div>
       <div class="arow calls hidden" id="calls">
         <button class="btn red" data-a="call3">Call 3</button>
         <button class="btn red" data-a="call2">Call 2</button>
@@ -470,11 +502,13 @@ window.Peer=Peer;
 //#ENGINE-START
 const SUITS=['♠','♥','♦','♣'];
 const RANKS=[null,'A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-// A card is an integer 0..51:  id = suit*13 + (rank-1)
-const rankOf=id=>id%13+1, suitOf=id=>Math.floor(id/13), ptsOf=id=>Math.min(rankOf(id),10);
-const cardName=id=>RANKS[rankOf(id)]+SUITS[suitOf(id)];
-const isCard=x=>Number.isInteger(x)&&x>=0&&x<52;
-const GIN_BONUS=25, UNDERCUT_BONUS=25;
+// A card is an integer 0..51:  id = suit*13 + (rank-1).   The two JOKERS are 52 and 53.
+const isJoker=id=>id===52||id===53;
+const rankOf=id=>isJoker(id)?99:id%13+1, suitOf=id=>isJoker(id)?4:Math.floor(id/13), ptsOf=id=>isJoker(id)?15:Math.min(rankOf(id),10);
+const cardName=id=>isJoker(id)?'Joker':RANKS[rankOf(id)]+SUITS[suitOf(id)];
+const isCard=x=>Number.isInteger(x)&&x>=0&&x<54;
+const GIN_BONUS=25, UNDERCUT_BONUS=25, ONE_TURN_BONUS=50, MAX_PLAYERS=6;
+const REACTS=['👍','😂','😮','😡','🔥','👏','😎','🎉'];
 
 function rand(n){const c=globalThis.crypto;if(c&&c.getRandomValues){const a=new Uint32Array(1);c.getRandomValues(a);return a[0]%n;}return Math.floor(Math.random()*n);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -482,35 +516,55 @@ function isConsec(v){for(let i=1;i<v.length;i++)if(v[i]!==v[i-1]+1)return false;
 const sumPts=a=>a.reduce((s,c)=>s+ptsOf(c),0);
 function popcnt(m){let c=0;while(m){m&=m-1;c++;}return c;}
 
-/* Validate a meld. Returns {type:'set'|'run', cards:[sorted ids]} or null.
+/* ---- melds (a joker stands in for ANY card) ----
    SET : 3-4 cards, same rank, all different suits.
-   RUN : 3+ cards, same suit, consecutive. Ace is LOW (A-2-3) or HIGH (Q-K-A), no wrap-around. */
-function analyze(ids){
-  if(!Array.isArray(ids)||ids.length<3)return null;
-  if(new Set(ids).size!==ids.length)return null;
-  const rs=ids.map(rankOf),ss=ids.map(suitOf);
-  if(rs.every(r=>r===rs[0])){
-    if(new Set(ss).size===ids.length&&ids.length<=4)return{type:'set',cards:ids.slice().sort((a,b)=>suitOf(a)-suitOf(b))};
-    return null;
-  }
-  if(ss.every(s=>s===ss[0])){
-    const sorted=ids.slice().sort((a,b)=>rankOf(a)-rankOf(b));
-    const vals=sorted.map(rankOf);
-    if(isConsec(vals))return{type:'run',cards:sorted};
-    if(vals[0]===1&&isConsec(vals.slice(1).concat(14)))return{type:'run',cards:sorted.slice(1).concat(sorted[0])};
+   RUN : 3+ cards, same suit, consecutive. Ace is LOW (A-2-3) or HIGH (Q-K-A), no wrap-around.
+   Every valid meld is returned as {type, cards:[ordered ids], jk:{jokerId: the real card id it stands for}}. */
+function setOf(ids){
+  const J=ids.filter(isJoker).sort((a,b)=>a-b),R=ids.filter(c=>!isJoker(c));
+  if(ids.length<3||ids.length>4||!R.length)return null;
+  const r0=rankOf(R[0]);
+  if(!R.every(c=>rankOf(c)===r0)||new Set(R.map(suitOf)).size!==R.length)return null;
+  const free=[0,1,2,3].filter(s=>!R.some(c=>suitOf(c)===s)),jk={};
+  J.forEach((j,i)=>{jk[j]=free[i]*13+r0-1;});
+  const key=c=>isJoker(c)?suitOf(jk[c]):suitOf(c);
+  return{type:'set',cards:ids.slice().sort((a,b)=>key(a)-key(b)||a-b),jk};
+}
+function runOf(ids){
+  const J=ids.filter(isJoker).sort((a,b)=>a-b),R=ids.filter(c=>!isJoker(c)),L=ids.length;
+  if(L<3||L>13||!R.length)return null;
+  const s=suitOf(R[0]);if(!R.every(c=>suitOf(c)===s))return null;
+  const hasA=R.some(c=>rankOf(c)===1);
+  for(const hi of(hasA?[false,true]:[false])){
+    const rk=R.map(c=>({c,r:(hi&&rankOf(c)===1)?14:rankOf(c)})).sort((a,b)=>a.r-b.r);
+    if(new Set(rk.map(x=>x.r)).size!==rk.length)return null;
+    for(let st=1;st+L-1<=14;st++){
+      if(rk[0].r<st||rk[rk.length-1].r>st+L-1)continue;
+      const have=new Map(rk.map(x=>[x.r,x.c])),cards=[],jk={};let ji=0;
+      for(let r=st;r<st+L;r++){
+        if(have.has(r))cards.push(have.get(r));
+        else{const j=J[ji++];cards.push(j);jk[j]=s*13+((r===14?1:r)-1);}
+      }
+      return{type:'run',cards,jk};
+    }
   }
   return null;
 }
-function layoffOK(meld,cards){
-  if(!cards.length)return null;
-  const r=analyze(meld.cards.concat(cards));
-  return(r&&r.type===meld.type)?r:null;
+const okIds=ids=>Array.isArray(ids)&&ids.length>=3&&new Set(ids).size===ids.length&&ids.every(isCard);
+function analyze(ids){
+  if(!okIds(ids))return null;
+  const nr=ids.filter(c=>!isJoker(c)).length;
+  return nr===1?(runOf(ids)||setOf(ids)):(setOf(ids)||runOf(ids));
 }
+function analyzeAs(type,ids){if(!okIds(ids))return null;return type==='set'?setOf(ids):runOf(ids);}
+function layoffOK(meld,cards){if(!cards.length)return null;return analyzeAs(meld.type,meld.cards.concat(cards));}
+/* Steal: swap a joker out of a table meld by putting in the exact real card it stands for. */
+function stealOK(meld,card){return !!(meld&&meld.jk&&isCard(card)&&!isJoker(card)&&meld.cards.some(c=>isJoker(c)&&meld.jk[c]===card));}
 
-/* ---- optimal deadwood solver (used to score the opponents' hands at the end of a round) ----
+/* ---- optimal deadwood solver (used to score the hands at the end of a round) ----
    1. try EVERY way of grouping the hand into valid sets/runs,
    2. whatever is left over is first "laid off" for free onto melds already on the table,
-   3. the arrangement with the fewest leftover points wins. */
+   3. the arrangement with the fewest leftover points wins (a joker left over costs 15). */
 function layoffClosure(rest,tmelds){
   const melds=tmelds.map(m=>({id:m.id,type:m.type,cards:m.cards.slice()}));
   const left=rest.slice(),laid=[];
@@ -518,6 +572,7 @@ function layoffClosure(rest,tmelds){
   while(changed&&left.length){
     changed=false;
     for(let i=0;i<left.length&&!changed;i++){
+      if(isJoker(left[i]))continue;          // a joker left over is NOT laid off for free: it costs 15
       for(const m of melds){
         const r=layoffOK(m,[left[i]]);
         if(r){m.cards=r.cards;laid.push({card:left[i],meldId:m.id});left.splice(i,1);changed=true;break;}
@@ -545,8 +600,8 @@ function bestDeadwood(hand,tmelds){
   function rec(i,used,skipped){
     while(i<n&&(used&(1<<i)))i++;
     if(i>=n){leaf(used);return;}
-    rec(i+1,used,skipped|(1<<i));                       // leave this card unmelded
-    for(const x of byBit[i]){                           // or put it in a meld (earlier cards are already decided)
+    rec(i+1,used,skipped|(1<<i));
+    for(const x of byBit[i]){
       if(x.m&(used|skipped))continue;
       chosen.push(x);rec(i+1,used|x.m,skipped);chosen.pop();
     }
@@ -554,17 +609,26 @@ function bestDeadwood(hand,tmelds){
   rec(0,0,0);
   return best;
 }
+/* Knock: you give away your HIGHEST card, the rest is your "minus". (Shared with the UI so both always agree.) */
+function knockSplit(hand){
+  const card=hand.slice().sort((a,b)=>ptsOf(b)-ptsOf(a)||rankOf(b)-rankOf(a)||b-a)[0];
+  const keep=hand.filter(c=>c!==card);
+  return{card,keep,dw:sumPts(keep)};
+}
 
 let G=null; // authoritative game state (host only)
 
 function makeGame(){
-  return{phase:'lobby',settings:{target:100,turnTime:60,maxPlayers:4,knockMax:10},botMode:false,dealAt:0,players:[],stock:[],discard:[],melds:[],nextMeld:1,
+  return{phase:'lobby',settings:{target:100,turnTime:60,maxPlayers:MAX_PLAYERS,knockMax:10},botMode:false,dealAt:0,players:[],stock:[],discard:[],melds:[],nextMeld:1,
     turn:0,step:'draw',picked:null,lastDrawn:null,dealer:0,round:1,turnNo:0,turnStartedAt:0,turnEndsAt:null,
+    swapTurn:-1,swapEv:null,swapId:0,reacts:[],reactN:0,
     result:null,matchWinner:null,log:[]};
 }
 function log(m){G.log.push(m);if(G.log.length>80)G.log.shift();}
 function uniqueName(n){const base=n;let k=2;while(G.players.some(p=>p.name===n))n=base+' '+(k++);return n;}
-function addPlayer(token,name){G.players.push({id:token,name:uniqueName(name),hand:[],score:0,connected:true,discAt:0});}
+function mkPlayer(id,name,bot){const p={id,name,hand:[],score:0,connected:true,discAt:0,streak:0,swap:0,laidTurn:null,reactAt:0};if(bot)p.bot=true;return p;}
+function addPlayer(token,name){G.players.push(mkPlayer(token,uniqueName(name),false));}
+function resetMatch(){G.players.forEach(p=>{p.score=0;p.streak=0;p.swap=0;p.laidTurn=null;});G.round=1;G.dealer=0;G.matchWinner=null;G.log=[];G.swapEv=null;}
 
 function reshuffleIfNeeded(){
   if(G.stock.length===0&&G.discard.length>1){
@@ -572,64 +636,95 @@ function reshuffleIfNeeded(){
     log('Stock empty — the discard pile was reshuffled.');
   }
 }
+/* 54 cards (52 + 2 jokers). 2 players: 10 cards each, 3-6 players: 7 cards each.
+   6 players x 7 = 42, +1 to start the discard pile = 43 -> 11 cards stay in the stock, and the discard pile is reshuffled when it runs out. */
 function dealRound(){
   const n=G.players.length,per=n===2?10:7;
-  const deck=shuffle([...Array(52).keys()]);
-  G.players.forEach(p=>{p.hand=deck.splice(0,per);});
-  G.discard=[deck.pop()];G.stock=deck;G.melds=[];G.nextMeld=1;
+  const deck=shuffle([...Array(54).keys()]);
+  G.players.forEach(p=>{p.hand=deck.splice(0,per);p.laidTurn=null;});
+  G.discard=[deck.pop()];G.stock=deck;G.melds=[];G.nextMeld=1;G.swapTurn=-1;
   G.turn=(G.dealer+1)%n;G.step='draw';G.picked=null;G.lastDrawn=null;G.result=null;G.phase='playing';G.dealAt=Date.now();
   log('Round '+G.round+' — '+G.players[G.turn].name+' starts.');
   startTurn();
 }
 function startTurn(){
   reshuffleIfNeeded();
-  if(G.stock.length===0){endRound(null,'stalemate');return;}   // nothing left to draw
+  if(G.stock.length===0){endRound(null,'stalemate');return;}
   G.turnNo++;G.turnStartedAt=Date.now();
   G.turnEndsAt=G.settings.turnTime?G.turnStartedAt+G.settings.turnTime*1000:null;
 }
 
 /* End of a round.
-   reason 'out'      : player emptied their hand            -> GIN  (opponents' deadwood + 25 bonus)
-   reason 'knock'    : player called 2 or 3 and kept 1-2 cards -> KNOCK (opponents' deadwood - own deadwood, per opponent)
-                       but if an opponent's deadwood <= the knocker's -> UNDERCUT (that opponent scores the gap + 25)
+   reason 'out'      : player emptied their hand -> GIN  (opponents' deadwood + 25, +50 if done in a single turn)
+   reason 'knock'    : player called 2 or 3, gave away their highest card -> KNOCK
+                       knocker  = (everybody else's deadwood) - (own kept "minus")
+                       others   = (deadwood of all the OTHER players incl. the knocker's minus) - own deadwood, never below 0
+                       if an opponent's deadwood <= the knocker's -> UNDERCUT (that opponent scores the gap + 25, nobody else scores)
    reason 'stalemate': nobody can draw -> no score */
 function endRound(winner,reason){
-  const n=G.players.length;
+  const P=G.players,n=P.length;
   G.turnEndsAt=null;G.phase='roundover';
-  const detail=G.players.map((p,i)=>{
+  const detail=P.map((p,i)=>{
     if(winner!==null&&i===winner)return{groups:[],laid:[],dead:p.hand.slice(),dw:sumPts(p.hand)};
     const b=bestDeadwood(p.hand,G.melds);
     return{groups:b.groups,laid:b.laid.map(x=>x.card),dead:b.dead,dw:b.dw};
   });
-  let scorer=winner,gained=0,kind='stalemate',bonus=0;const lines=[];
+  const gains=P.map(()=>0),lines=[],nm=i=>P[i].name;
+  const nj=i=>detail[i].dead.filter(isJoker).length;
+  const dwTxt=i=>detail[i].dw+' pts'+(nj(i)?' (incl. '+nj(i)+' joker'+(nj(i)>1?'s':'')+' × 15)':'');
+  let scorer=winner,kind='stalemate',bonus=0;
   if(winner!==null){
-    const K=detail[winner].dw,nm=i=>G.players[i].name;
+    const K=detail[winner].dw;
     if(reason==='out'){
-      kind='gin';
-      for(let i=0;i<n;i++)if(i!==winner){gained+=detail[i].dw;lines.push(nm(i)+' is left with '+detail[i].dw+' pts');}
-      bonus=GIN_BONUS;gained+=bonus;lines.push('Gin bonus +'+bonus);
+      kind='gin';let g=0;
+      for(let i=0;i<n;i++)if(i!==winner){g+=detail[i].dw;lines.push(nm(i)+' is left with '+dwTxt(i));}
+      lines.push('Opponents\' deadwood total: '+g);
+      bonus=GIN_BONUS;lines.push('Gin bonus: +'+GIN_BONUS);
+      const w=P[winner];
+      if(w.laidTurn==null||w.laidTurn===G.turnNo){bonus+=ONE_TURN_BONUS;lines.push('Single-turn bonus (out in one turn, nothing melded earlier): +'+ONE_TURN_BONUS);}
+      gains[winner]=g+bonus;
+      lines.push(nm(winner)+': '+g+' + '+bonus+' = +'+gains[winner]);
     }else{
       let under=-1;
       for(let k=1;k<n;k++){const i=(winner+k)%n;if(detail[i].dw<=K&&(under<0||detail[i].dw<detail[under].dw))under=i;}
       if(under>=0){
-        kind='undercut';scorer=under;bonus=UNDERCUT_BONUS;gained=(K-detail[under].dw)+bonus;
-        lines.push(nm(under)+' has '+detail[under].dw+' vs the knock of '+K+' → '+(K-detail[under].dw)+' + undercut bonus '+bonus);
+        kind='undercut';scorer=under;bonus=UNDERCUT_BONUS;gains[under]=(K-detail[under].dw)+bonus;
+        lines.push(nm(winner)+' knocked with a minus of '+K+'.');
+        lines.push(nm(under)+' has '+dwTxt(under)+' → '+(K-detail[under].dw)+' + undercut bonus '+bonus+' = +'+gains[under]);
       }else{
         kind='knock';
-        for(let k=1;k<n;k++){const i=(winner+k)%n,diff=detail[i].dw-K;gained+=diff;lines.push(nm(i)+': '+detail[i].dw+' − '+K+' = +'+diff);}
+        const others=[];let total=0;
+        for(let k=1;k<n;k++){const i=(winner+k)%n;others.push(i);total+=detail[i].dw;}
+        lines.push(nm(winner)+' (knocker) kept '+detail[winner].dead.map(cardName).join(' ')+' = '+K+' pts (the minus)');
+        lines.push('Deadwood left: '+others.map(i=>nm(i)+' '+dwTxt(i)).join(' · ')+' → total '+total);
+        gains[winner]=total-K;
+        lines.push(nm(winner)+' (knocker): '+total+' − '+K+' = +'+gains[winner]);
+        others.forEach(j=>{
+          const oth=K+total-detail[j].dw,raw=oth-detail[j].dw;
+          gains[j]=Math.max(0,raw);
+          lines.push(nm(j)+': others\' deadwood ('+K+' + '+(total-detail[j].dw)+' = '+oth+') − own '+detail[j].dw+' = '+(raw<0?raw+' → 0':'+'+raw));
+        });
       }
     }
-    G.players[scorer].score+=gained;
+    P.forEach((p,i)=>{p.score+=gains[i];});
   }
-  G.result={kind,winner:scorer,knocker:reason==='knock'?winner:null,gained,bonus,pts:detail.map(d=>d.dw),detail,lines};
+  // win streaks + Swap power card (2 wins in a row; only one token can be held)
+  const earned=[];
+  P.forEach((p,i)=>{
+    if(kind!=='stalemate'&&i===scorer){p.streak=(p.streak||0)+1;if(p.streak>=2&&!p.swap){p.swap=1;earned.push(i);}}
+    else p.streak=0;
+  });
+  earned.forEach(i=>{const t='🔄 '+nm(i)+' earned a SWAP power card (2 wins in a row)!';lines.push(t);log(t);});
+  G.result={kind,winner:scorer,knocker:reason==='knock'?winner:null,gained:scorer!==null?gains[scorer]:0,bonus,gains,pts:detail.map(d=>d.dw),detail,lines,streaks:P.map(p=>p.streak||0)};
+  const gs=G.result.gained;
   if(kind==='stalemate')log('Stalemate — nobody scores.');
-  else if(kind==='gin')log(G.players[scorer].name+' went out (GIN) and scored '+gained+'.');
-  else if(kind==='knock')log(G.players[scorer].name+' knocked and scored '+gained+'.');
-  else log(G.players[scorer].name+' UNDERCUT the knock and scored '+gained+'.');
-  const max=Math.max(...G.players.map(p=>p.score));
+  else if(kind==='gin')log(P[scorer].name+' went out (GIN) and scored '+gs+'.');
+  else if(kind==='knock')log(P[scorer].name+' knocked and scored '+gs+' (the others scored too).');
+  else log(P[scorer].name+' UNDERCUT the knock and scored '+gs+'.');
+  const max=Math.max(...P.map(p=>p.score));
   if(max>=G.settings.target){
-    const tops=G.players.filter(p=>p.score===max);
-    if(tops.length===1){G.phase='matchover';G.matchWinner=G.players.indexOf(tops[0]);}
+    const tops=P.filter(p=>p.score===max);
+    if(tops.length===1){G.phase='matchover';G.matchWinner=P.indexOf(tops[0]);}
   }
 }
 function needTurn(seat,step){
@@ -645,9 +740,10 @@ function checkHand(seat,cards){
   return null;
 }
 function removeCards(p,cards){p.hand=p.hand.filter(c=>!cards.includes(c));}
+const swapLock=()=>G.swapTurn===G.turnNo;
+const SWAP_MSG="You used Swap this turn, so you can't go out — keep at least one card after discarding.";
+function markLaid(p){if(p.laidTurn==null)p.laidTurn=G.turnNo;}
 
-/* Draw. from 'stock' (1 card) or from 'discard' with `count` = how many cards to take from the TOP of the pile.
-   Taking the 3rd card down means taking 3 cards: the one you want + everything lying on top of it. */
 function doDraw(seat,from,count){
   const e=needTurn(seat,'draw');if(e)return e;
   const p=G.players[seat];
@@ -660,18 +756,34 @@ function doDraw(seat,from,count){
     if(!G.discard.length)return'The discard pile is empty.';
     const k=count===undefined?1:count;
     if(!Number.isInteger(k)||k<1||k>G.discard.length)return'Bad number of cards.';
-    const taken=G.discard.splice(G.discard.length-k,k);   // oldest first: taken[0] is the card you wanted
+    const taken=G.discard.splice(G.discard.length-k,k);
     p.hand.push(...taken);G.lastDrawn=taken[0];G.picked=taken[0];
     log(k===1?p.name+' took '+cardName(taken[0])+' from the discard pile.'
               :p.name+' took '+k+' cards from the discard pile (down to '+cardName(taken[0])+').');
   }else return'Bad draw source.';
   G.step='play';return null;
 }
+/* SWAP power card: at the START of your turn (before drawing) give one of your cards and get a RANDOM card from an opponent. */
+function doSwap(seat,card,target){
+  const e=needTurn(seat,'draw');if(e)return e==='You already drew — meld or discard.'?'Swap can only be used before you draw.':e;
+  const p=G.players[seat];
+  if(!p.swap)return'You do not have a Swap power card.';
+  if(!Number.isInteger(target)||target<0||target>=G.players.length||target===seat)return'Choose an opponent to swap with.';
+  const t=G.players[target];if(!t.hand.length)return'That player has no cards.';
+  const ch=checkHand(seat,[card]);if(ch)return ch;
+  const k=rand(t.hand.length),got=t.hand[k];
+  t.hand[k]=card;p.hand[p.hand.indexOf(card)]=got;
+  p.swap=0;G.swapTurn=G.turnNo;G.swapEv={id:++G.swapId,from:seat,to:target};
+  log('🔄 '+p.name+' used SWAP on '+t.name+' — a card changed hands!');
+  return null;
+}
 function doMeld(seat,cards){
   const e=needTurn(seat,'play')||checkHand(seat,cards);if(e)return e;
   const r=analyze(cards);if(!r)return'That is not a valid set or run (need 3+ cards).';
-  const p=G.players[seat];removeCards(p,cards);
-  G.melds.push({id:G.nextMeld++,type:r.type,cards:r.cards,owner:seat});
+  const p=G.players[seat];
+  if(swapLock()&&p.hand.length-cards.length<2)return SWAP_MSG;
+  removeCards(p,cards);markLaid(p);
+  G.melds.push({id:G.nextMeld++,type:r.type,cards:r.cards,jk:r.jk,owner:seat});
   log(p.name+' melded a '+r.type+': '+r.cards.map(cardName).join(' '));
   if(p.hand.length===0)endRound(seat,'out');
   return null;
@@ -680,31 +792,46 @@ function doLayoff(seat,meldId,cards){
   const e=needTurn(seat,'play')||checkHand(seat,cards);if(e)return e;
   const m=G.melds.find(x=>x.id===meldId);if(!m)return'That meld does not exist.';
   const r=layoffOK(m,cards);if(!r)return"Those cards don't fit that meld.";
-  const p=G.players[seat];removeCards(p,cards);m.cards=r.cards;
+  const p=G.players[seat];
+  if(swapLock()&&p.hand.length-cards.length<2)return SWAP_MSG;
+  removeCards(p,cards);markLaid(p);m.cards=r.cards;m.jk=r.jk;
   log(p.name+' laid off '+cards.map(cardName).join(' ')+'.');
   if(p.hand.length===0)endRound(seat,'out');
+  return null;
+}
+/* STEAL: take a joker out of a table meld by putting in the exact real card it stands for. */
+function doSteal(seat,meldId,card){
+  const e=needTurn(seat,'play')||checkHand(seat,[card]);if(e)return e;
+  const m=G.melds.find(x=>x.id===meldId);if(!m)return'That meld does not exist.';
+  if(!stealOK(m,card))return'That card is not the one the joker stands for.';
+  const j=m.cards.find(c=>isJoker(c)&&m.jk[c]===card);
+  const r=analyzeAs(m.type,m.cards.map(c=>c===j?card:c));if(!r)return"That swap doesn't make a valid meld.";
+  const p=G.players[seat];
+  p.hand=p.hand.filter(c=>c!==card);p.hand.push(j);m.cards=r.cards;m.jk=r.jk;
+  log('🃏 '+p.name+' stole a Joker with '+cardName(card)+'!');
   return null;
 }
 function doDiscard(seat,card){
   const e=needTurn(seat,'play')||checkHand(seat,[card]);if(e)return e;
   const p=G.players[seat];
   if(card===G.picked&&p.hand.length>1)return"You can't discard the card you just took from the discard pile.";
+  if(swapLock()&&p.hand.length<2)return SWAP_MSG;
   removeCards(p,[card]);G.discard.push(card);
   log(p.name+' discarded '+cardName(card)+'.');
   if(p.hand.length===0){endRound(seat,'out');return null;}
   G.turn=(G.turn+1)%G.players.length;G.step='draw';G.picked=null;G.lastDrawn=null;startTurn();
   return null;
 }
-/* Call 2 / Call 3: you hold 2 or 3 cards, give one away (discard) and keep the rest as your "minus". */
-function doKnock(seat,card){
-  const e=needTurn(seat,'play')||checkHand(seat,[card]);if(e)return e;
+/* Call 2 / Call 3 (knock): you hold 2 or 3 cards; your HIGHEST card goes to the discard pile, the rest is your "minus". */
+function doKnock(seat){
+  const e=needTurn(seat,'play');if(e)return e;
   const p=G.players[seat];
+  if(swapLock())return"You used Swap this turn — you can't knock on the same turn.";
   if(p.hand.length<2||p.hand.length>3)return'You can call only when you hold exactly 1, 2 or 3 cards.';
-  if(card===G.picked)return"You can't give away the card you just took from the discard pile.";
-  const keep=p.hand.filter(c=>c!==card),dw=sumPts(keep);
-  if(dw>G.settings.knockMax)return'Your kept cards total '+dw+' — the knock limit is '+G.settings.knockMax+'.';
-  p.hand=keep;G.discard.push(card);
-  log(p.name+' called '+(keep.length+1)+' and knocked, giving away '+cardName(card)+' (keeping '+dw+' pts).');
+  const sp=knockSplit(p.hand);
+  if(sp.dw>G.settings.knockMax)return'Your kept cards total '+sp.dw+' — the knock limit is '+G.settings.knockMax+'.';
+  p.hand=sp.keep;G.discard.push(sp.card);
+  log(p.name+' called '+(sp.keep.length+1)+' and knocked, giving away '+cardName(sp.card)+' (keeping '+sp.dw+' pts).');
   endRound(seat,'knock');
   return null;
 }
@@ -714,65 +841,75 @@ function autoPlay(seat,why){
   if(G.step==='draw'){if(doDraw(seat,'stock'))doDraw(seat,'discard',1);}
   if(G.phase!=='playing'||G.turn!==seat)return;
   let card=null;
-  if(G.lastDrawn!==null&&p.hand.includes(G.lastDrawn)&&(G.lastDrawn!==G.picked||p.hand.length===1))card=G.lastDrawn;
+  const val=c=>isJoker(c)?-1:ptsOf(c);
+  if(G.lastDrawn!==null&&p.hand.includes(G.lastDrawn)&&(G.lastDrawn!==G.picked||p.hand.length===1)&&!isJoker(G.lastDrawn))card=G.lastDrawn;
   if(card===null){
     const pool=p.hand.filter(c=>c!==G.picked||p.hand.length===1);
-    card=pool.sort((a,b)=>ptsOf(b)-ptsOf(a))[0];
+    card=(pool.length?pool:p.hand).sort((a,b)=>val(b)-val(a))[0];
   }
   doDiscard(seat,card);
 }
 
-/* ---------------- computer players ----------------
-   A bot is a normal player flagged bot:true. botPlan() returns ONE action message for its current state
-   (draw -> lay off -> meld -> call/discard); the host feeds it through handleAction() with delays so it plays like a person. */
-const BOT_NAMES=['Ava','Max','Zoe','Leo','Mia','Kai','Nova','Rex'];
+/* ---------------- computer players ---------------- */
+const BOT_NAMES=['Ava','Max','Zoe','Leo','Mia','Kai','Nova','Rex','Ivy','Sam'];
 function addBot(){
   const used=new Set(G.players.map(p=>p.name)),pool=BOT_NAMES.filter(n=>!used.has(n));
   const name=pool.length?pool[rand(pool.length)]:'Bot';
-  G.players.push({id:'bot-'+Date.now().toString(36)+rand(1e6),name:uniqueName(name),hand:[],score:0,connected:true,discAt:0,bot:true});
+  G.players.push(mkPlayer('bot-'+Date.now().toString(36)+rand(1e6),uniqueName(name),true));
 }
-function potential(c,hand){      // how many friends does this card have in the hand (pairs, same-suit neighbours)?
+function potential(c,hand){
+  if(isJoker(c))return 9;
   let s=0;
   for(const o of hand){if(o===c)continue;if(rankOf(o)===rankOf(c))s+=2;else if(suitOf(o)===suitOf(c)&&Math.abs(rankOf(o)-rankOf(c))<=2)s+=1;}
   return s;
 }
-function botDiscard(h){          // throw away the card whose loss hurts least (lowest deadwood left, fewest friends, most points)
+function botDiscard(h){
   const cand=h.filter(c=>c!==G.picked);
   let best=null;
-  for(const c of cand){
-    const rest=h.filter(x=>x!==c),dw=bestDeadwood(rest,G.melds).dw,pot=potential(c,rest),pts=-ptsOf(c);
+  for(const c of(cand.length?cand:h)){
+    const rest=h.filter(x=>x!==c),dw=bestDeadwood(rest,G.melds).dw+(isJoker(c)?12:0),pot=potential(c,rest),pts=-ptsOf(c);
     if(!best||dw<best.dw||(dw===best.dw&&(pot<best.pot||(pot===best.pot&&pts<best.pts))))best={c,dw,pot,pts};
   }
   return best.c;
 }
 function botPlan(seat){
-  const p=G.players[seat],h=p.hand;
+  const p=G.players[seat],h=p.hand,lock=swapLock();
   if(G.step==='draw'){
+    // maybe use the Swap power card: give away our worst dead card for a random one
+    if(p.swap){
+      const bd=bestDeadwood(h,G.melds),dead=bd.dead.filter(c=>!isJoker(c)).sort((a,b)=>ptsOf(b)-ptsOf(a));
+      const opp=G.players.map((q,i)=>i).filter(i=>i!==seat&&G.players[i].hand.length);
+      if(dead.length&&opp.length&&rand(100)<45)return{t:'swap',card:dead[0],target:opp[rand(opp.length)]};
+    }
     const base=bestDeadwood(h,G.melds).dw,dl=G.discard.length;
     let best=null;
-    for(let k=1;k<=Math.min(4,dl);k++){          // would taking k cards from the discard pile (and using the deepest one) help?
+    for(let k=1;k<=Math.min(4,dl);k++){
       const taken=G.discard.slice(dl-k),target=taken[0],b=bestDeadwood(h.concat(taken),G.melds);
       if(b.dead.includes(target))continue;
       const worst=Math.max(0,...b.dead.filter(c=>c!==target).map(ptsOf)),after=b.dw-worst;
       if(!best||after<best.after)best={k,after};
     }
     if(best&&best.after<=base-3)return{t:'draw',from:'discard',count:best.k};
+    if(dl&&isJoker(G.discard[dl-1]))return{t:'draw',from:'discard',count:1};
     return{t:'draw',from:'stock'};
   }
+  // 0) steal a joker from the table
+  for(const m of G.melds){const c=h.find(x=>stealOK(m,x));if(c!==undefined)return{t:'steal',meldId:m.id,card:c};}
   // 1) lay off onto the table
-  const lay=h.filter(c=>G.melds.some(m=>layoffOK(m,[c]))).sort((a,b)=>ptsOf(b)-ptsOf(a))[0];
-  if(lay!==undefined){const m=G.melds.find(x=>layoffOK(x,[lay]));return{t:'layoff',meldId:m.id,cards:[lay]};}
+  if(!lock||h.length>2){
+    const lay=h.filter(c=>G.melds.some(m=>layoffOK(m,[c]))).sort((a,b)=>ptsOf(b)-ptsOf(a))[0];
+    if(lay!==undefined){const m=G.melds.find(x=>layoffOK(x,[lay]));return{t:'layoff',meldId:m.id,cards:[lay]};}
+  }
   // 2) lay down a meld
   const b=bestDeadwood(h,[]);
-  if(b.groups.length)return{t:'meld',cards:b.groups[0]};
+  if(b.groups.length&&(!lock||h.length-b.groups[0].length>=2))return{t:'meld',cards:b.groups[0]};
   // 3) finish: go out, call, or discard
-  if(h.length===1)return{t:'discard',card:h[0]};
-  if(h.length<=3){
-    let kb=null;
-    for(const c of h){if(c===G.picked)continue;const dw=sumPts(h.filter(x=>x!==c));if(!kb||dw<kb.dw)kb={c,dw};}
-    if(kb&&kb.dw<=G.settings.knockMax){
-      const prob=kb.dw<=3?100:kb.dw<=6?65:30;
-      if(rand(100)<prob)return{t:'knock',card:kb.c};
+  if(h.length===1&&!lock)return{t:'discard',card:h[0]};
+  if(h.length<=3&&h.length>=2&&!lock){
+    const sp=knockSplit(h);
+    if(sp.dw<=G.settings.knockMax){
+      const prob=sp.dw<=3?100:sp.dw<=6?65:30;
+      if(rand(100)<prob)return{t:'knock'};
     }
   }
   return{t:'discard',card:botDiscard(h)};
@@ -791,31 +928,37 @@ function handleAction(token,msg){
       if([50,100,200,300].includes(msg.target))s.target=msg.target;
       if([0,30,45,60,90,120].includes(msg.turnTime))s.turnTime=msg.turnTime;
       if([10,15,99].includes(msg.knockMax))s.knockMax=msg.knockMax;
-      if([2,3,4].includes(msg.maxPlayers)&&msg.maxPlayers>=G.players.length)s.maxPlayers=msg.maxPlayers;
+      if([2,3,4,5,6].includes(msg.maxPlayers)&&msg.maxPlayers>=G.players.length)s.maxPlayers=msg.maxPlayers;
       return null;}
     case'start':
       if(!host||G.phase!=='lobby')return'Only the host can start the game.';
       if(G.players.length<2)return'You need at least 2 players.';
-      G.players.forEach(p=>p.score=0);G.round=1;G.dealer=0;G.matchWinner=null;G.log=[];
-      dealRound();return null;
+      resetMatch();dealRound();return null;
     case'next':
       if(!host||G.phase!=='roundover')return'Only the host can start the next round.';
       G.dealer=(G.dealer+1)%G.players.length;G.round++;dealRound();return null;
     case'rematch':
       if(!host||G.phase!=='matchover')return'Only the host can start a new match.';
-      G.players.forEach(p=>p.score=0);G.round=1;G.dealer=0;G.matchWinner=null;G.log=[];
-      dealRound();return null;
+      resetMatch();dealRound();return null;
     case'bots':{
       if(!host||G.phase!=='lobby'||!G.botMode)return'Only the host can change the bots.';
-      const n=msg.n;if(![1,2,3].includes(n))return null;
+      const n=msg.n;if(![1,2,3,4,5].includes(n))return null;
       while(G.players.length-1>n)G.players.pop();
       while(G.players.length-1<n)addBot();
       G.settings.maxPlayers=n+1;return null;}
     case'draw':return doDraw(seat,msg.from,msg.count);
     case'meld':return doMeld(seat,msg.cards);
     case'layoff':return doLayoff(seat,msg.meldId,msg.cards);
+    case'steal':return doSteal(seat,msg.meldId,msg.card);
+    case'swap':return doSwap(seat,msg.card,msg.target);
     case'discard':return doDiscard(seat,msg.card);
-    case'knock':return doKnock(seat,msg.card);
+    case'knock':return doKnock(seat);
+    case'react':{
+      if(G.phase==='lobby'||!REACTS.includes(msg.e))return null;
+      const p=G.players[seat],now=Date.now();
+      if(now-(p.reactAt||0)<700)return null;
+      p.reactAt=now;G.reactN=(G.reactN||0)+1;G.reacts=(G.reacts||[]).concat({id:G.reactN,seat,e:msg.e}).slice(-8);
+      return null;}
   }
   return null;
 }
@@ -823,9 +966,11 @@ function handleAction(token,msg){
 /* What a given player is allowed to see (opponents' hands are hidden). The whole discard pile is public. */
 function viewFor(seat){
   return{t:'state',you:seat,phase:G.phase,settings:G.settings,round:G.round,dealer:G.dealer,botMode:G.botMode,
-    players:G.players.map(p=>({name:p.name,count:p.hand.length,score:p.score,connected:p.connected,bot:!!p.bot})),
+    players:G.players.map(p=>({name:p.name,count:p.hand.length,score:p.score,connected:p.connected,bot:!!p.bot,
+      swap:p.swap?1:0,streak:p.streak||0})),
     hand:G.players[seat].hand.slice(),stock:G.stock.length,discard:G.discard.slice(),discardN:G.discard.length,
     melds:G.melds,turn:G.turn,step:G.step,picked:G.picked,turnNo:G.turnNo,
+    swapEv:G.swapEv||null,swapUsed:G.phase==='playing'&&swapLock(),reacts:(G.reacts||[]).slice(-8),
     timeLeft:(G.phase==='playing'&&G.turnEndsAt)?Math.max(0,G.turnEndsAt-Date.now()):null,
     log:G.log.slice(-40),result:G.result,matchWinner:G.matchWinner};
 }
@@ -849,7 +994,7 @@ let view=null,prevView=null,leaving=false,everJoined=false,attempts=0;
 let reconnTimer=null,pingIv=null,hostIv=null,watchIv=null,lastMsgAt=0;
 let timerBase={left:0,at:0},lastTurnNo=-1,modalKind=null,endKey='',modalTimer=null;
 let botIv=null,botAt=0;
-let ui={selected:new Set(),order:[],armed:{a:null,t:0}};
+let ui={selected:new Set(),order:[],armed:{a:null,t:0},swapMode:false,hints:(function(){try{return localStorage.getItem('rr.hints')!=='0';}catch(e){return true;}})()};
 
 myToken=sessionStorage.getItem('rr.token')||(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)).slice(0,20);
 sessionStorage.setItem('rr.token',myToken);
@@ -1138,6 +1283,7 @@ function sortHand(ids,mode){
   return ids.slice().sort(mode==='rank'?(a,b)=>rankOf(a)-rankOf(b)||suitOf(a)-suitOf(b):(a,b)=>suitOf(a)-suitOf(b)||rankOf(a)-rankOf(b));
 }
 function cardHTML(id,extra='',style=''){
+  if(isJoker(id))return`<div class="card joker ${extra}" data-id="${id}"${style?` style="${style}"`:''}><span class="cn tl">JK</span><span class="cs">🃏</span><span class="cn br">JK</span><span class="jrep"></span><span class="cback"></span></div>`;
   const r=RANKS[rankOf(id)],s=SUITS[suitOf(id)],red=suitOf(id)===1||suitOf(id)===2;
   return`<div class="card ${red?'red':''} ${extra}" data-id="${id}"${style?` style="${style}"`:''}><span class="cn tl">${r}<i>${s}</i></span><span class="cs">${s}</span><span class="cn br">${r}<i>${s}</i></span><span class="cback"></span></div>`;
 }
@@ -1258,7 +1404,7 @@ function setView(nv){prevView=view;view=nv;try{onView();}catch(e){console.error(
 function resetTable(){
   handEls.clear();meldEls.clear();oppEls.clear();pendingSrc.clear();
   $('#hand').innerHTML='';$('#melds').innerHTML='';$('#opps').innerHTML='';$('#discard-slot').innerHTML='';$('#stock-slot').innerHTML='';
-  oppKey='';lastDiscKey=null;lastStock=-1;lastStockKey='';lastScore=null;lastTurnNo=-1;endKey='';
+  oppKey='';lastDiscKey=null;lastStock=-1;lastStockKey='';lastScore=null;lastTurnNo=-1;endKey='';lastSwapId=null;lastReactId=null;ui.swapMode=false;
   ui.order=[];ui.selected.clear();ui.armed={a:null,t:0};
   document.body.classList.remove('myturn');
 }
@@ -1286,6 +1432,7 @@ function onView(){
   document.body.classList.toggle('myturn',canAct());
   if(v.phase==='playing'&&v.turn===v.you&&v.step==='draw'&&v.turnNo!==lastTurnNo){lastTurnNo=v.turnNo;flashTurn();sfx.turn();try{navigator.vibrate&&navigator.vibrate(120);}catch(e){}}
   if(dvOpen)renderDView(false);
+  effects(v);
 }
 
 /* ---- lobby ---- */
@@ -1313,8 +1460,8 @@ function renderLobby(v){
     lobbySettingsSig=sig;
     const s=v.settings,opt=(val,lab,cur)=>`<option value="${val}" ${val===cur?'selected':''}>${lab}</option>`;
     if(host){
-      const first=v.botMode?`<div><label>Bots</label><select id="s-bots">${[1,2,3].map(n=>opt(n,n+(n===1?' bot':' bots'),v.players.length-1)).join('')}</select></div>`
-        :`<div><label>Players (max)</label><select id="s-max">${[2,3,4].map(n=>n<v.players.length?'':opt(n,n+' players',s.maxPlayers)).join('')}</select></div>`;
+      const first=v.botMode?`<div><label>Bots</label><select id="s-bots">${[1,2,3,4,5].map(n=>opt(n,n+(n===1?' bot':' bots'),v.players.length-1)).join('')}</select></div>`
+        :`<div><label>Players (max)</label><select id="s-max">${[2,3,4,5,6].map(n=>n<v.players.length?'':opt(n,n+' players',s.maxPlayers)).join('')}</select></div>`;
       $('#l-settings').innerHTML=`<div class="grid2">${first}
         <div><label>Play to</label><select id="s-target">${[50,100,200,300].map(n=>opt(n,n+' pts',s.target)).join('')}</select></div></div>
         <div class="grid2"><div><label>Turn timer</label><select id="s-time">${[[0,'No timer'],[30,'30 seconds'],[45,'45 seconds'],[60,'60 seconds'],[90,'90 seconds'],[120,'2 minutes']].map(a=>opt(a[0],a[1],s.turnTime)).join('')}</select></div>
@@ -1365,6 +1512,7 @@ function srcFor(id,mover){
 }
 function renderGame(v,prev,newRound){
   document.body.classList.toggle('notimer',!v.settings.turnTime);
+  if(!(canAct()&&v.step==='draw'&&v.players[v.you].swap))ui.swapMode=false;
   $('#g-roomlbl').textContent=v.botMode?'':'Room ';$('#g-code').textContent=v.botMode?'vs bots':roomCode;$('#g-round').textContent=v.round;
   const ev=diffEvents(prev,v);
   const n=v.players.length,SH=newRound?900:0;
@@ -1410,6 +1558,7 @@ function renderOpps(v,ev,deal){
   const key=v.players.length+':'+v.you+':'+roomCode;
   if(key!==oppKey){oppKey=key;oppEls.clear();$('#opps').innerHTML='';}
   const n=v.players.length,stockR=$('#stock-slot').getBoundingClientRect();
+  $('#opps').classList.toggle('many',n-1>3);
   for(let k=1;k<n;k++){
     const i=(v.you+k)%n,p=v.players[i];
     let el=oppEls.get(i);
@@ -1420,9 +1569,10 @@ function renderOpps(v,ev,deal){
     }
     el.classList.toggle('active',v.phase==='playing'&&v.turn===i);
     el.classList.toggle('off',!p.connected);
+    el.classList.toggle('pick',!!ui.swapMode);
     el.querySelector('.av').textContent=p.bot?'🤖':(p.name[0]||'?').toUpperCase();
-    el.querySelector('.oname').innerHTML=(i===0?'👑 ':'')+esc(p.name)+(p.connected?'':' <em>(away)</em>');
-    el.querySelector('.osc').textContent=p.score+' pts · '+p.count+' card'+(p.count===1?'':'s');
+    el.querySelector('.oname').innerHTML=nameHTML(p,i,v)+(p.connected?'':' <em>(away)</em>');
+    el.querySelector('.osc').innerHTML=p.score+' pts · '+p.count+' card'+(p.count===1?'':'s')+(p.swap?' · ':'')+(p.swap?'<span class="sw" title="Has a Swap power card">🔄</span>':'');
     const fan=el.querySelector('.ofan'),want=Math.min(p.count,12);
     while(fan.children.length>want)fan.lastChild.remove();
     while(fan.children.length<want){
@@ -1515,6 +1665,7 @@ function renderMelds(ev){
         if(row.children[ci]!==c)row.insertBefore(c,row.children[ci]||null);
       });
       have.forEach(c=>c.remove());
+      row.querySelectorAll('.card.joker').forEach(jc=>{const rp=m.jk&&m.jk[jc.dataset.id],jr=jc.querySelector('.jrep');if(jr)jr.textContent=rp!==undefined?'='+cardName(rp):'';});
     });
   });
   const first=!prevView||prevView.phase==='lobby';
@@ -1533,16 +1684,17 @@ function markMelds(){
   const play=canAct()&&v.step==='play',sel=[...ui.selected];
   v.melds.forEach(m=>{
     const el=meldEls.get(m.id);if(!el)return;
-    const acc=!!(play&&sel.length&&layoffOK(m,sel));
+    const st=!!(play&&sel.length===1&&stealOK(m,sel[0])),acc=st||!!(play&&sel.length&&layoffOK(m,sel));
     el.classList.toggle('accepts',acc);
-    el.firstChild.innerHTML=el.firstChild.dataset.base+(acc?' · tap to add':'');
+    el.firstChild.innerHTML=el.firstChild.dataset.base+(st?' · tap to steal 🃏':acc?' · tap to add':'');
   });
 }
 function renderMe(v){
   const me=v.players[v.you],turn=canAct(),bar=$('#me-bar');
   bar.querySelector('.av').textContent=(me.name[0]||'?').toUpperCase();
   bar.querySelector('.avr').dataset.seat=v.you;
-  bar.querySelector('.mname').textContent=me.name;
+  bar.querySelector('.mname').innerHTML=me.streak>=2?`<span class="fire">🔥 ${esc(me.name)}</span>`:esc(me.name);
+  bar.querySelector('.mx').innerHTML=(v.dealer===v.you?'<span class="dchip" title="Dealer">D</span>':'')+(me.swap?'<span class="sw" title="You have a Swap power card">🔄</span>':'');
   const sc=bar.querySelector('.msc');sc.textContent=me.score+' pts';
   if(lastScore!==null&&me.score!==lastScore){sc.classList.remove('bump');void sc.offsetWidth;sc.classList.add('bump');}
   lastScore=me.score;
@@ -1599,8 +1751,9 @@ function renderHand(deal,ev){
   if(pendingSrc.size&&!created.length)pendingSrc.clear();
 }
 function syncSel(){
-  const v=view;
+  const v=view,near=(ui.hints&&v&&v.phase==='playing')?nearIds(v):new Set();
   handEls.forEach((el,id)=>{
+    el.classList.toggle('near',near.has(id));
     el.classList.toggle('sel',ui.selected.has(id));
     el.classList.toggle('picked',!!v&&id===v.picked&&canAct()&&v.step==='play');
   });
@@ -1613,6 +1766,7 @@ function meldPlan(){
   if(v.step!=='play')return{reason:'Draw a card first — tap the Stock or the Discard pile.'};
   if(!sel.length)return{reason:'Select 3+ cards to meld, or 1 card to add to a meld on the table.'};
   if(sel.length>=3&&analyze(sel))return{kind:'new',cards:sel,type:analyze(sel).type};
+  if(sel.length===1){const sm=v.melds.find(x=>stealOK(x,sel[0]));if(sm)return{kind:'steal',cards:sel,meldId:sm.id};}
   const m=v.melds.find(x=>layoffOK(x,sel));
   if(m)return{kind:'layoff',cards:sel,meldId:m.id};
   return{reason:sel.length<3?"Those cards don't fit any meld on the table. A new meld needs 3+ cards.":'Not a valid set (same rank, different suits) or run (same suit, in order).'};
@@ -1622,7 +1776,7 @@ function discardPlan(){
   if(!v||v.phase!=='playing')return{reason:'No round in progress.'};
   if(v.turn!==v.you)return{reason:"It's not your turn yet."};
   if(v.step!=='play')return{reason:'Draw a card first — tap the Stock or the Discard pile.'};
-  if(v.hand.length===1)return{card:v.hand[0]};
+  if(v.hand.length===1){if(v.swapUsed)return{reason:"You used Swap this turn, so you can't go out."};return{card:v.hand[0]};}
   if(sel.length!==1)return{reason:'Select exactly one card to discard.'};
   if(sel[0]===v.picked)return{reason:"You can't discard the card you just took from the discard pile."};
   return{card:sel[0]};
@@ -1630,28 +1784,30 @@ function discardPlan(){
 /* Call N (N = 1, 2 or 3): you must be holding exactly N cards.
    Call 1: discard your last card = you go out (GIN). Call 2 / 3: give one card away, keep the rest as your minus. */
 function callPlan(n){
-  const v=view,sel=[...ui.selected];
+  const v=view;
   if(!v||v.phase!=='playing')return{reason:'No round in progress.'};
   if(v.turn!==v.you)return{reason:"It's not your turn yet."};
   if(v.step!=='play')return{reason:'Draw a card first — tap the Stock or the Discard pile.'};
   if(v.hand.length>3)return{reason:'You can call once you are down to 3 cards or fewer.'};
   if(v.hand.length!==n)return{reason:`You hold ${v.hand.length} card${v.hand.length===1?'':'s'} — use “Call ${v.hand.length}”.`};
+  if(v.swapUsed)return{reason:"You used Swap this turn — you can't go out or knock."};
   if(n===1)return{n,go:true,card:v.hand[0],keep:[],dw:0};
-  if(sel.length!==1)return{reason:'Select the one card you want to give away.'};
-  if(sel[0]===v.picked)return{reason:"You can't give away the card you just took from the discard pile."};
-  const keep=v.hand.filter(c=>c!==sel[0]),dw=sumPts(keep);
-  if(dw>v.settings.knockMax)return{reason:`Your kept cards total ${dw} — the knock limit is ${v.settings.knockMax}.`};
-  return{n,card:sel[0],keep,dw};
+  const sp=knockSplit(v.hand);
+  if(sp.dw>v.settings.knockMax)return{reason:`Your kept cards total ${sp.dw} — the knock limit is ${v.settings.knockMax}.`};
+  return{n,card:sp.card,keep:sp.keep,dw:sp.dw};
 }
 const armedNow=a=>ui.armed.a===a&&performance.now()-ui.armed.t<3000;
 function renderActions(){
   const v=view;if(!v)return;
   const sel=[...ui.selected],mp=meldPlan(),dp=discardPlan(),A=a=>$('#actions [data-a="'+a+'"]');
   const mb=A('meld');
-  mb.textContent=mp.kind==='layoff'?`Lay off (${sel.length})`:`Meld${sel.length?' ('+sel.length+')':''}`;
+  mb.textContent=mp.kind==='steal'?'Steal 🃏':mp.kind==='layoff'?`Lay off (${sel.length})`:`Meld${sel.length?' ('+sel.length+')':''}`;
   mb.classList.toggle('soft',!mp.kind);
   const db=A('discard');db.textContent=v.hand.length===1?'Go out':'Discard';db.classList.toggle('soft',dp.card===undefined);
   A('left').disabled=A('right').disabled=sel.length!==1;
+  const meP=v.players[v.you],hasSwap=v.phase==='playing'&&!!meP.swap,swapOK=canAct()&&v.step==='draw';
+  $('#swaprow').classList.toggle('hidden',!hasSwap);
+  if(hasSwap){const sb=A('swap');sb.classList.toggle('soft',!swapOK);sb.classList.toggle('armed',!!ui.swapMode&&swapOK);sb.textContent=ui.swapMode&&swapOK?'✖ Cancel swap':'🔄 Swap power card';}
   // Call 1 / 2 / 3 buttons (only while holding 3 cards or fewer on your play step)
   const showCalls=canAct()&&v.step==='play'&&v.hand.length<=3;
   $('#calls').classList.toggle('hidden',!showCalls);
@@ -1666,14 +1822,16 @@ function renderActions(){
   }
   let h='';
   if(canAct()){
-    if(v.step==='draw')h='👆 Draw first: tap the Stock, or tap the Discard pile to pick a card.';
+    if(ui.swapMode&&swapOK)h='🔄 <b>Swap:</b> select ONE of your cards to give away, then tap an opponent. You get a random card from them — blind!';
+    else if(v.step==='draw')h=(hasSwap?'🔄 You can <b>Swap</b> now, or ':'👆 ')+'draw: tap the Stock, or tap the Discard pile to pick a card.';
     else if(mp.kind==='new')h='✓ Valid '+mp.type+' — tap <b>Meld</b>';
+    else if(mp.kind==='steal')h='🃏 That is the card a Joker stands for — tap <b>Steal</b> (or tap that meld) to take the Joker!';
     else if(mp.kind==='layoff')h='✓ Fits a table meld — tap <b>Lay off</b> (or tap that meld)';
     else if(showCalls&&kp){
       if(kp.go)h='🏁 One card left — tap <b>Call 1</b> (or Go out) to finish with GIN!';
-      else if(kp.card!==undefined)h=`✋ <b>Call ${kp.n}</b>: give away ${cardName(kp.card)}, keep ${kp.keep.map(cardName).join(' ')} (<b>${kp.dw}</b> pts) — or just Discard to play on`;
+      else if(kp.card!==undefined)h=`✋ <b>Call ${kp.n}</b>: your highest card ${cardName(kp.card)} goes to the discard pile, you keep ${kp.keep.map(cardName).join(' ')} (<b>${kp.dw}</b> pts). Tap twice to confirm — or just Discard to play on`;
       else if(sel.length)h=esc(kp.reason);
-      else h=`✋ You hold ${v.hand.length} cards — select the card to give away, then <b>Call ${v.hand.length}</b> to end the round`;
+      else h=`✋ You hold ${v.hand.length} cards — <b>Call ${v.hand.length}</b> ends the round (your highest card is given away). ${esc(kp.reason||'')}`;
     }
     else if(sel.length)h=esc(mp.reason);
     else h='Select cards to meld, or 1 card to discard';
@@ -1812,6 +1970,7 @@ $('#melds').addEventListener('click',e=>{
   if(view.step!=='play')return deny('Draw a card first — tap the Stock or the Discard pile.');
   if(!ui.selected.size)return toast('Select cards from your hand first, then tap a meld to add them.');
   const id=+m.dataset.mid,meld=view.melds.find(x=>x.id===id);
+  if(meld&&ui.selected.size===1&&stealOK(meld,[...ui.selected][0]))return send({t:'steal',meldId:id,card:[...ui.selected][0]});
   if(!meld||!layoffOK(meld,[...ui.selected]))return deny("Those cards don't fit that meld.");
   send({t:'layoff',meldId:id,cards:[...ui.selected]});
 });
@@ -1820,6 +1979,7 @@ $('#actions').addEventListener('click',e=>{
   if(a==='meld'){
     const p=meldPlan();
     if(p.kind==='new')send({t:'meld',cards:p.cards});
+    else if(p.kind==='steal')send({t:'steal',meldId:p.meldId,card:p.cards[0]});
     else if(p.kind==='layoff')send({t:'layoff',meldId:p.meldId,cards:p.cards});
     else deny(p.reason);
   }else if(a==='discard'){
@@ -1828,8 +1988,12 @@ $('#actions').addEventListener('click',e=>{
   }else if(/^call[123]$/.test(a)){
     const n=+a.slice(4),p=callPlan(n);
     if(p.card===undefined){ui.armed={a:null,t:0};renderActions();return deny(p.reason);}
-    if(armedNow(a)){ui.armed={a:null,t:0};send(p.go?{t:'discard',card:p.card}:{t:'knock',card:p.card});}
+    if(armedNow(a)){ui.armed={a:null,t:0};send(p.go?{t:'discard',card:p.card}:{t:'knock'});}
     else{ui.armed={a,t:performance.now()};renderActions();setTimeout(renderActions,3050);}  // first tap arms, second tap confirms
+  }
+  else if(a==='swap'){
+    if(!canAct()||view.step!=='draw')return deny('Swap can only be used at the start of your turn, before you draw.');
+    ui.swapMode=!ui.swapMode;renderOpps(view,{},null);renderActions();
   }
   else if(a==='sortS'){ui.order=sortHand(ui.order,'suit');renderHand(null,null);}
   else if(a==='sortR'){ui.order=sortHand(ui.order,'rank');renderHand(null,null);}
@@ -1851,27 +2015,37 @@ function renderModal(){
   if(modalKind==='rules'){
     h=`<button class="btn ghost mclose" data-x>✕</button><h2>📖 Rules</h2>
     <p><b>Goal:</b> get rid of your cards by forming melds, or end the round early by <b>calling</b> when you are down to 1–3 cards. First to the target score wins the match.</p>
-    <h3>Deal</h3><ul><li>2 players: 10 cards each · 3–4 players: 7 cards each.</li></ul>
+    <h3>Deck &amp; deal</h3><ul><li>54 cards: a normal deck <b>plus 2 Jokers</b>.</li>
+    <li>2 players: 10 cards each · 3–6 players: 7 cards each. (6 players = 42 cards + 1 to start the discard pile, so 11 stay in the stock — the discard pile is reshuffled when the stock runs out.)</li>
+    <li>2–6 players online, or up to 5 bots.</li></ul>
     <h3>Your turn</h3><ul>
-    <li><b>1. Draw</b> — tap the <b>Stock</b> (face-down), <i>or</i> tap the <b>Discard pile</b>: all discarded cards drop down so you can see them. Tap the card you want — you must also take <b>every card lying on top of it</b> (want the 3rd card down? you take 3 cards). You can't throw the card you wanted straight back.</li>
-    <li><b>2. Meld / lay off (optional)</b> — select 3+ cards and tap <b>Meld</b> for a new set or run, or select card(s) and tap <b>Lay off</b> (or tap the glowing meld) to add to any meld on the table.</li>
-    <li><b>3. Discard</b> — select one card and tap <b>Discard</b> (or drag it onto the discard pile). That ends your turn.</li></ul>
-    <h3>Melds</h3><ul><li><b>Set:</b> 3–4 cards of the same rank, different suits (7♠ 7♥ 7♦).</li>
-    <li><b>Run:</b> 3+ consecutive cards of the same suit (4♥ 5♥ 6♥). Ace is low (A-2-3) or high (Q-K-A), no wrap-around.</li></ul>
-    <h3>Call 1 · Call 2 · Call 3 (Gin-Rummy style knock)</h3><ul>
+    <li><b>0. Swap (optional)</b> — if you hold the 🔄 power card, use it <i>before drawing</i> (see below).</li>
+    <li><b>1. Draw</b> — tap the <b>Stock</b> (face-down), <i>or</i> tap the <b>Discard pile</b>: pick a card (you also take every card lying on top of it). You can't throw back the card you just took.</li>
+    <li><b>2. Meld / lay off / steal (optional)</b> — select 3+ cards and tap <b>Meld</b>, or select card(s) and tap <b>Lay off</b> (or tap the glowing meld).</li>
+    <li><b>3. Discard</b> — select one card and tap <b>Discard</b>. That ends your turn.</li></ul>
+    <h3>Melds &amp; Jokers</h3><ul><li><b>Set:</b> 3–4 cards of the same rank, different suits.</li>
+    <li><b>Run:</b> 3+ consecutive cards of the same suit. Ace is low (A-2-3) or high (Q-K-A), no wrap-around.</li>
+    <li><b>Joker 🃏:</b> stands in for ANY card in a set or run. On the table a Joker shows the card it stands for (e.g. “=6♥”).</li>
+    <li><b>Steal:</b> put the <i>exact real card</i> a table Joker stands for into that meld and the Joker comes into your hand. Select the card and tap <b>Steal</b> (or tap the meld).</li>
+    <li>A Joker still in your hand at the end of a round costs <b>15 points</b> (it is not laid off for free).</li></ul>
+    <h3>Call 1 · Call 2 · Call 3</h3><ul>
     <li><b>Call 1</b> — you hold exactly 1 card: discard it and you go out. That is <b>GIN</b>.</li>
-    <li><b>Call 2</b> — you hold 2 cards: give one away, keep one as your <i>minus</i> (its points must be within the knock limit, 10 by default).</li>
-    <li><b>Call 3</b> — you hold 3 cards: give one away, keep two as your <i>minus</i>.</li>
-    <li>Buttons ask you to tap twice, so you can't call by accident.</li></ul>
+    <li><b>Call 2 / Call 3</b> (knock) — you hold 2 or 3 cards: your <b>highest card</b> is given away to the discard pile automatically and the rest is your <i>minus</i> (within the knock limit, 10 by default).</li>
+    <li>Call buttons ask you to tap twice, so you can't call by accident.</li></ul>
     <h3>Scoring</h3><ul>
-    <li>Card points: A = 1, 2–10 = face value, J/Q/K = 10.</li>
-    <li>When a call ends the round, every other hand is arranged into its <b>best possible melds</b>, cards that fit melds already on the table are laid off for free, and whatever is left is that player's <b>deadwood</b>.</li>
-    <li><b>Knock</b> (Call 2/3): you score, from each opponent, <i>their deadwood − your kept cards</i>.</li>
-    <li><b>Undercut:</b> if an opponent's deadwood is equal or lower than your kept cards, they score the difference <b>+25</b> and you score nothing.</li>
-    <li><b>Gin</b> (going out): the opponents' deadwood <b>+25</b> bonus.</li>
-    <li>If the stock runs out the discard pile is reshuffled. If nothing is left to draw the round is a stalemate (no points).</li></ul>
+    <li>Card points: A = 1, 2–10 = face value, J/Q/K = 10, Joker = 15.</li>
+    <li>At the end of a round every other hand is arranged into its best melds, cards that fit melds on the table are laid off for free (not Jokers), and the rest is that player's <b>deadwood</b>.</li>
+    <li><b>Knock:</b> the knocker scores <i>(everybody else's deadwood added up) − their minus</i>. Every other player also scores: <i>(deadwood of all the OTHER players, including the knocker's minus) − their own deadwood</i>, never below 0. The knocker gets the biggest share. The round-over screen shows every calculation.</li>
+    <li><b>Undercut:</b> if any opponent's deadwood is equal or lower than the knocker's minus, the new knock scoring does not apply: that opponent scores the difference <b>+25</b> and nobody else scores.</li>
+    <li><b>Gin</b> (going out): opponents' deadwood <b>+25</b>. <b>Single-turn bonus +50</b> if you go out in one turn without having melded anything earlier in the round.</li>
+    <li>If nothing is left to draw the round is a stalemate (no points).</li></ul>
+    <h3>🔄 Swap power card</h3><ul>
+    <li>Win <b>2 rounds in a row</b> to earn one (you can hold only one at a time). It is not part of the deck.</li>
+    <li>Use it at the <b>start of your turn, before drawing</b>: tap <b>Swap</b>, select one of your cards, tap an opponent. You give that card and get a <b>random</b> card from them — blind. Everyone gets a message that a swap happened (no cards revealed).</li>
+    <li>On a turn you swap you can't go out or knock. The token is used up after one swap.</li></ul>
+    <h3>Fun stuff</h3><ul><li>🔥 shows next to a player who has won 2+ rounds in a row · the <b>D</b> chip marks the dealer · 😀 sends a quick reaction · 💡 turns the hint glow (cards close to a meld) on or off.</li></ul>
     <h3>Timer</h3><ul><li>If the turn timer runs out (or a player disconnects) the game auto-plays: draws from the stock and discards.</li></ul>
-    <h3>Controls</h3><ul><li>Tap to select · ◀ ▶ move a selected card · Sort buttons · On desktop you can also drag cards to reorder them or onto the discard pile · 🔊 toggles sound.</li></ul>`;
+    <h3>Controls</h3><ul><li>Tap to select · ◀ ▶ move a selected card · Sort buttons · On desktop you can also drag cards · 🔊 toggles sound.</li></ul>`;
   }else if(modalKind==='scores'){
     const t=v.settings.target,order=v.players.map((p,i)=>({p,i})).sort((a,b)=>b.p.score-a.p.score);
     h=`<button class="btn ghost mclose" data-x>✕</button><h2>🏆 Scoreboard</h2><p style="margin:0;opacity:.8">Round ${v.round} · first to ${t} pts wins</p>
@@ -1883,7 +2057,7 @@ function renderModal(){
     let title='';
     if(over)title=`<div class="big">🏆</div><h2 style="text-align:center">${esc(v.players[v.matchWinner].name)} wins the match!</h2>`;
     else if(r.kind==='stalemate')title='<h2>🤝 Stalemate</h2><p>The stock ran out — nobody scores this round.</p>';
-    else if(r.kind==='knock')title=`<h2>✋ ${r.winner===v.you?'You knocked!':nm(r.winner)+' knocked!'}</h2><p>+${r.gained} points for ${nm(r.winner)}.</p>`;
+    else if(r.kind==='knock')title=`<h2>✋ ${r.winner===v.you?'You knocked!':nm(r.winner)+' knocked!'}</h2><p>+${r.gained} points for ${nm(r.winner)} — everybody scores something, the knocker the most.</p>`;
     else if(r.kind==='gin')title=`<h2>🏁 ${r.winner===v.you?'GIN! You went out!':'GIN! '+nm(r.winner)+' went out!'}</h2><p>+${r.gained} points for ${nm(r.winner)}.</p>`;
     else title=`<h2>⚡ UNDERCUT!</h2><p>${nm(r.winner)} beat ${nm(r.knocker)}'s knock and scores +${r.gained}.</p>`;
     if(over&&r.kind!=='stalemate')title+=`<p style="text-align:center">Final round: ${r.kind==='knock'?'knock':r.kind==='gin'?'gin':'undercut'} by ${nm(r.winner)}, +${r.gained}.</p>`;
@@ -1895,7 +2069,7 @@ function renderModal(){
       if(d.laid.length){parts.push(grpHTML('laid',d.laid,'laid off',i,c));c+=d.laid.length;}
       if(d.dead.length)parts.push(grpHTML('dead',d.dead,i===r.knocker?'kept (minus)':'deadwood',i,c));
       if(!parts.length)parts.push('<small>no cards left</small>');
-      return`<div class="rrow ${isW?'win':''}" style="--r:${i}"><div class="rn"><span>${tag}${i===0?'👑 ':''}${nm(i)}</span><span>${d.dw} pts left · total <b class="cnt" data-from="${p.score-(isW?r.gained:0)}" data-to="${p.score}">${p.score}</b></span></div><div class="parts">${parts.join('')}</div></div>`;
+      return`<div class="rrow ${isW?'win':''}" style="--r:${i}"><div class="rn"><span>${tag}${i===0?'👑 ':''}${nm(i)}</span><span>${d.dw} pts left · ${r.gains&&r.gains[i]?'<b class="gain">+'+r.gains[i]+'</b> · ':''}total <b class="cnt" data-from="${p.score-(r.gains?r.gains[i]:(isW?r.gained:0))}" data-to="${p.score}">${p.score}</b></span></div><div class="parts">${parts.join('')}</div></div>`;
     }).join('');
     if(r.lines.length)h+=`<ul class="calc">${r.lines.map((l,k)=>`<li style="--r:${k}">${esc(l)}</li>`).join('')}</ul>`;
     h+=`<div class="mbtns">${v.you===0?(over?'<button class="btn gold" data-do="rematch">🔁 Play again</button>':'<button class="btn gold" data-do="next">Next round ▶</button>'):'<button class="btn ghost" disabled>Waiting for the host…</button>'}<button class="btn ghost" data-do="leave">Leave</button></div>`;
@@ -1926,6 +2100,80 @@ $('#btn-sound').textContent=sfx.isMuted()?'🔇':'🔊';
 $('#l-copycode').onclick=()=>copyText(roomCode);
 $('#l-share').onclick=()=>{const t=inviteText();if(navigator.share)navigator.share({title:'Rummy Royale',text:t}).catch(()=>{});else copyText(t);};
 
+/* ---- v3 extras: names, hints, swap/reaction effects ---- */
+function nameHTML(p,i,v){
+  const nm=p.streak>=2?`<span class="fire" title="${p.streak} wins in a row">🔥 ${esc(p.name)}</span>`:esc(p.name);
+  return(i===0?'👑 ':'')+nm+(v.dealer===i?'<span class="dchip" title="Dealer">D</span>':'');
+}
+let nearKey='',nearSet=new Set(),lastSwapId=null,lastReactId=null;
+/* Hint glow: loose cards that are one card away from a set/run (or that fit a meld on the table). */
+function nearIds(v){
+  const key=v.hand.join(',')+'|'+v.melds.map(m=>m.id+':'+m.cards.join('.')).join(';');
+  if(key===nearKey)return nearSet;
+  nearKey=key;nearSet=new Set();
+  const h=v.hand,inMeld=new Set(h.length<=13?bestDeadwood(h,[]).groups.flat():[]),loose=h.filter(c=>!inMeld.has(c));
+  for(const c of loose){
+    if(isJoker(c))continue;
+    if(v.melds.some(m=>layoffOK(m,[c]))){nearSet.add(c);continue;}
+    for(const o of loose){
+      if(o===c||isJoker(o))continue;
+      if(rankOf(o)===rankOf(c)&&suitOf(o)!==suitOf(c)){nearSet.add(c);break;}
+      if(suitOf(o)===suitOf(c)){const d=Math.abs(rankOf(o)-rankOf(c));if(d<=2||d>=11){nearSet.add(c);break;}}
+    }
+  }
+  return nearSet;
+}
+function seatRect(s){
+  const el=s===view.you?$('#me-bar'):oppEls.get(s);if(!el)return null;
+  const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  return{left:cx-17,top:cy-24,width:34,height:48};
+}
+function swapFx(ev){
+  const v=view,A=v.players[ev.from],B=v.players[ev.to];if(!A||!B)return;
+  toast('🔄 '+A.name+' used SWAP on '+B.name+' — a card changed hands!',3600);
+  sfx.swoosh();
+  const a=seatRect(ev.from),b=seatRect(ev.to);
+  if(a&&b){ghostFly('<div class="back"></div>',a,b,{dur:750});ghostFly('<div class="back"></div>',b,a,{dur:750,delay:140});}
+  [ev.from,ev.to].forEach(s=>{
+    const el=s===v.you?$('#me-bar'):oppEls.get(s);
+    if(el&&el.animate&&!reduceMotion)el.animate([{boxShadow:'0 0 0 rgba(255,255,255,0)'},{boxShadow:'0 0 28px 8px rgba(255,255,255,.95)',offset:.4},{boxShadow:'0 0 0 rgba(255,255,255,0)'}],{duration:1200});
+  });
+  setTimeout(()=>sparkles(a,12),300);setTimeout(()=>sparkles(b,12),420);
+}
+function reactFx(seat,e){
+  const el=view&&(seat===view.you?$('#me-bar'):oppEls.get(seat));if(!el)return;
+  const r=el.getBoundingClientRect(),s=document.createElement('div');
+  s.className='floaty';s.textContent=e;s.style.left=(r.left+r.width/2-16+(Math.random()*40-20))+'px';s.style.top=(r.top-4)+'px';
+  document.body.appendChild(s);setTimeout(()=>s.remove(),2000);
+}
+function effects(v){
+  if(v.swapEv){
+    if(lastSwapId===null)lastSwapId=v.swapEv.id;
+    else if(v.swapEv.id!==lastSwapId){lastSwapId=v.swapEv.id;swapFx(v.swapEv);}
+  }
+  if(Array.isArray(v.reacts)){
+    if(lastReactId===null)lastReactId=Math.max(0,...v.reacts.map(r=>r.id));
+    else v.reacts.filter(r=>r.id>lastReactId).forEach(r=>{lastReactId=Math.max(lastReactId,r.id);reactFx(r.seat,r.e);});
+  }
+}
+$('#opps').addEventListener('click',e=>{
+  if(!ui.swapMode||!view||!canAct()||view.step!=='draw')return;
+  const el=e.target.closest('.opp');if(!el)return;
+  if(ui.selected.size!==1)return deny('First select exactly ONE of your own cards to give away.');
+  const card=[...ui.selected][0],target=+el.dataset.seat;
+  ui.swapMode=false;ui.selected.clear();send({t:'swap',card,target});
+});
+(function reactUI(){
+  const bar=$('#reactbar');
+  bar.innerHTML=REACTS.map(e=>`<button data-e="${e}">${e}</button>`).join('');
+  $('#btn-react').onclick=()=>bar.classList.toggle('hidden');
+  bar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;send({t:'react',e:b.dataset.e});bar.classList.add('hidden');});
+  const hb=$('#btn-hint');
+  const paint=()=>{hb.classList.toggle('off',!ui.hints);hb.title=ui.hints?'Hints are ON (tap to turn off)':'Hints are OFF (tap to turn on)';};
+  hb.onclick=()=>{ui.hints=!ui.hints;try{localStorage.setItem('rr.hints',ui.hints?'1':'0');}catch(x){}paint();nearKey='';syncSel();toast(ui.hints?'💡 Hints ON — cards close to a meld glow':'Hints OFF');};
+  paint();
+})();
+
 /* ---- home screen ---- */
 function refreshHome(){
   const box=$('#resume');box.innerHTML='';
@@ -1945,7 +2193,7 @@ function refreshHome(){
 $('#b-create').onclick=()=>createRoom();
 $('#b-join').onclick=()=>joinRoom($('#in-code').value);
 $('#b-bots').onclick=()=>startBotGame(+$('#in-bots').value);
-try{const nb=localStorage.getItem('rr.bots');if(['1','2','3'].includes(nb))$('#in-bots').value=nb;else $('#in-bots').value='2';}catch(e){$('#in-bots').value='2';}
+try{const nb=localStorage.getItem('rr.bots');if(['1','2','3','4','5'].includes(nb))$('#in-bots').value=nb;else $('#in-bots').value='2';}catch(e){$('#in-bots').value='2';}
 $('#in-code').addEventListener('keydown',e=>{if(e.key==='Enter')$('#b-join').click();});
 $('#in-name').addEventListener('keydown',e=>{if(e.key==='Enter')($('#in-code').value?$('#b-join'):$('#b-create')).click();});
 $('#in-name').value=localStorage.getItem('rr.name')||'';
