@@ -432,7 +432,7 @@ function base(){if(SERVED)return location.origin;let b=localStorage.getItem('rr.
 function Em(){this._h={};}
 Em.prototype.on=function(e,f){(this._h[e]=this._h[e]||[]).push(f);return this;};
 Em.prototype.emit=function(e,a){(this._h[e]||[]).slice().forEach(function(f){try{f(a);}catch(x){console.error(x);}});};
-function post(b,p,o){return fetch(b+p,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(o)}).then(function(r){return r.json();});}
+function post(b,p,o){var ac=window.AbortController?new AbortController():null,t=ac?setTimeout(function(){ac.abort();},8000):0;return fetch(b+p,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(o),keepalive:false,signal:ac?ac.signal:undefined}).then(function(r){clearTimeout(t);return r.json();},function(e){clearTimeout(t);throw e;});}
 function Conn(peer,room,to){Em.call(this);this.peer=peer;this.room=room;this.to=to;this.open=false;this._es=null;}
 Conn.prototype=Object.create(Em.prototype);
 /* Messages are sent ONE AT A TIME, in order, and retried if the network hiccups. Old unsent 'state' / 'ping' messages are replaced by the newest. */
@@ -496,7 +496,7 @@ Peer.prototype.connect=function(id){
   es.onmessage=function(e){
     var d;try{d=JSON.parse(e.data);}catch(_){return;}
     if(d.t==='err'&&RELAY_ERR.indexOf(d.m)>=0){try{es.close();}catch(_){}c._es=null;c.open=false;self.emit('error',{type:'peer-unavailable'});return;}   // the relay server says the room is gone (the game's own 'err' messages pass through below)
-    if(d.t==='ping')return;
+    if(d.t==='ping'){c.emit('beat');return;}
     c.emit('data',d);
   };
   es.onerror=function(){try{es.close();}catch(_){}c._es=null;if(c.open){c.open=false;c.emit('close');}else self.emit('error',{type:'network'});};
@@ -805,18 +805,16 @@ function doDraw(seat,from,count){
   }else return'Bad draw source.';
   G.step='play';return null;
 }
-/* SWAP power card: at the START of your turn (before drawing) give one of your cards and get a RANDOM card from an opponent. */
-function doSwap(seat,card,target){
+/* SWAP power card: at the START of your turn (before drawing) trade your ENTIRE hand with an opponent's entire hand (any sizes). */
+function doSwap(seat,target){
   const e=needTurn(seat,'draw');if(e)return e==='You already drew — meld or discard.'?'Swap can only be used before you draw.':e;
   const p=G.players[seat];
   if(!p.swap)return'You do not have a Swap power card.';
   if(!Number.isInteger(target)||target<0||target>=G.players.length||target===seat)return'Choose an opponent to swap with.';
   const t=G.players[target];if(!t.hand.length||isOut(t))return'That player is away or has no cards.';
-  const ch=checkHand(seat,[card]);if(ch)return ch;
-  const k=rand(t.hand.length),got=t.hand[k];
-  t.hand[k]=card;p.hand[p.hand.indexOf(card)]=got;
+  const mine=p.hand;p.hand=t.hand;t.hand=mine;
   p.swap=0;G.swapTurn=G.turnNo;G.swapEv={id:++G.swapId,from:seat,to:target};
-  log('🔄 '+p.name+' used SWAP on '+t.name+' — a card changed hands!');
+  log('🔄 '+p.name+' used SWAP and traded ALL their cards with '+t.name+'!');
   return null;
 }
 function doMeld(seat,cards){
@@ -918,11 +916,10 @@ function botDiscard(h){
 function botPlan(seat){
   const p=G.players[seat],h=p.hand,lock=swapLock();
   if(G.step==='draw'){
-    // maybe use the Swap power card: give away our worst dead card for a random one
+    // maybe use the Swap power card: if our hand is bad, trade it for the hand of the opponent holding the fewest cards
     if(p.swap){
-      const bd=bestDeadwood(h,G.melds),dead=bd.dead.filter(c=>!isJoker(c)).sort((a,b)=>ptsOf(b)-ptsOf(a));
-      const opp=G.players.map((q,i)=>i).filter(i=>i!==seat&&G.players[i].hand.length&&!isOut(G.players[i]));
-      if(dead.length&&opp.length&&rand(100)<45)return{t:'swap',card:dead[0],target:opp[rand(opp.length)]};
+      const opp=G.players.map((q,i)=>i).filter(i=>i!==seat&&G.players[i].hand.length&&!isOut(G.players[i])).sort((a,b)=>G.players[a].hand.length-G.players[b].hand.length);
+      if(opp.length&&bestDeadwood(h,G.melds).dw>=25&&rand(100)<50)return{t:'swap',target:opp[0]};
     }
     const base=bestDeadwood(h,G.melds).dw,dl=G.discard.length;
     let best=null;
@@ -997,7 +994,7 @@ function handleAction(token,msg){
     case'meld':return doMeld(seat,msg.cards);
     case'layoff':return doLayoff(seat,msg.meldId,msg.cards);
     case'steal':return doSteal(seat,msg.meldId,msg.card);
-    case'swap':return doSwap(seat,msg.card,msg.target);
+    case'swap':return doSwap(seat,msg.target);
     case'discard':return doDiscard(seat,msg.card);
     case'knock':return doKnock(seat);
     case'react':{
@@ -1241,7 +1238,7 @@ function hostTick(){
 function watchClients(){   // drop clients that stopped answering pings (silent disconnects)
   if(!G)return;const now=Date.now();
   for(const tok of Object.keys(conns)){
-    if(now-(seen[tok]||0)>9000){const c=conns[tok];try{c.close();}catch(e){}
+    if(now-(seen[tok]||0)>25000){const c=conns[tok];try{c.close();}catch(e){}
       if(conns[tok]===c){delete conns[tok];const i=G.players.findIndex(p=>p.id===tok);
         if(i>0){if(G.phase==='lobby')G.players.splice(i,1);else if(!G.players[i].kicked&&G.players[i].connected!==false){G.players[i].dropAt=G.players[i].dropAt||now;log('⚠ '+G.players[i].name+' lost connection — 6 seconds to reconnect.');}broadcast();}}}
   }
@@ -1279,14 +1276,15 @@ function scheduleReconnect(){
   if(leaving||isHost||reconnTimer)return;
   if(view)setConn('reconnecting');
   const d=Math.min(4000,700*Math.pow(1.5,reconnTry++));      // 0.7s, 1s, 1.6s, 2.4s ... max 4s
-  reconnTimer=setTimeout(()=>{reconnTimer=null;connectToHost();},d);
+  reconnTimer=setTimeout(()=>{reconnTimer=null;if(!(hostConn&&hostConn.open)){try{if(peer)peer.destroy();}catch(e){}}connectToHost();},d);
 }
 /* Reconnect RIGHT NOW (phone woke up, internet came back, or the player tapped “Join this room”). */
 function kickReconnect(){
   if(leaving||isHost||!roomCode)return;
-  if(hostConn&&hostConn.open&&Date.now()-lastMsgAt<9000)return;
+  if(hostConn&&hostConn.open&&Date.now()-lastMsgAt<12000)return;
   if(hostConn){const x=hostConn;hostConn=null;try{x.close();}catch(e){}}
   clearTimeout(reconnTimer);reconnTimer=null;reconnTry=0;attempts=0;
+  try{if(peer)peer.destroy();}catch(e){}
   if(view)setConn('reconnecting');
   connectToHost();
 }
@@ -1306,10 +1304,10 @@ function connectToHost(){
     pingIv=setInterval(()=>{
       if(!hostConn||!hostConn.open)return;
       try{hostConn.send({t:'ping'});}catch(e){}
-      if(Date.now()-lastMsgAt>10000){const x=hostConn;hostConn=null;try{x.close();}catch(e){}scheduleReconnect();}
+      if(Date.now()-lastMsgAt>25000){const x=hostConn;hostConn=null;try{x.close();}catch(e){}scheduleReconnect();}
     },3000);
   });
-  c.on('data',onHostMsg);
+  c.on('data',onHostMsg);c.on('beat',()=>{lastMsgAt=Date.now();});
   const lost=()=>{if(hostConn===c){hostConn=null;scheduleReconnect();}};
   c.on('close',lost);c.on('error',lost);
   setTimeout(()=>{if(!opened&&hostConn===c){hostConn=null;try{c.close();}catch(e){}attempts++;
@@ -1402,7 +1400,7 @@ const CARD_DEFS=`<svg width="0" height="0" style="position:absolute" aria-hidden
 <symbol id="s1" viewBox="0 0 100 100"><path d="M50 94C8 62 4 30 22 16C36 6 50 18 50 30C50 18 64 6 78 16C96 30 92 62 50 94Z"/></symbol>
 <symbol id="s2" viewBox="0 0 100 100"><path d="M50 3C60 24 76 38 88 50C76 62 60 76 50 97C40 76 24 62 12 50C24 38 40 24 50 3Z"/></symbol>
 <symbol id="s3" viewBox="0 0 100 100"><g><circle cx="50" cy="27" r="21"/><circle cx="26" cy="57" r="21"/><circle cx="74" cy="57" r="21"/><path d="M44 56C44 76 40 88 30 96H70C60 88 56 76 56 56Z"/></g></symbol>
-<symbol id="fr" viewBox="0 0 100 140"><rect x="1" y="1" width="98" height="138" rx="7" fill="url(#pc)" stroke="#8b7650" stroke-width="1"/><rect x="4" y="4" width="92" height="132" rx="5" fill="none" stroke="#a48d5e" stroke-opacity=".45" stroke-width=".5"/><g fill="none" stroke="#6b4f2a" stroke-linecap="round"><path d="M94 6C89 24 97 40 91 58C86 76 97 94 91 112C88 124 93 131 92 136" stroke-width="1.2"/><path d="M91 26L85 22M93 40L99 36M91 58L84 54M90 64L85 70M93 86L99 82M91 100L85 104M92 112L98 116M90 124L85 128" stroke-width=".8"/><path d="M6 118C9 104 3 92 7 78" stroke-width=".6" stroke-opacity=".5"/></g><g fill="#6b4f2a"><path d="M88 20L85 22L88 24Z"/><path d="M99 35L99 38L96 37Z"/><path d="M86 53L84 54L86 56Z"/><path d="M99 81L99 84L96 83Z"/></g></symbol>
+<symbol id="fr" viewBox="0 0 100 140"><rect x="1" y="1" width="98" height="138" rx="7" fill="url(#pc)" stroke="#8b7650" stroke-width="1"/><rect x="4" y="4" width="92" height="132" rx="5" fill="none" stroke="#a48d5e" stroke-opacity=".45" stroke-width=".5"/></symbol>
 <symbol id="jk" viewBox="0 0 100 140"><use href="#fr"/><g transform="translate(17 17) scale(.8)"><path d="M28 42C14 40 6 28 8 14C16 24 26 28 38 34Z" fill="url(#bz)" stroke="#120b03" stroke-width="1"/><path d="M64 42C78 40 86 28 84 14C76 24 66 28 54 34Z" fill="url(#bz)" stroke="#120b03" stroke-width="1"/><path d="M39 30C36 20 41 10 46 3C51 10 56 20 53 30Z" fill="url(#bz)" stroke="#120b03" stroke-width="1"/><path d="M24 64C19 44 30 27 46 27C62 27 73 44 68 64C73 82 66 102 58 114C54 106 50 102 46 106C42 102 38 106 34 114C26 102 19 82 24 64Z" fill="url(#bz)" stroke="#120b03" stroke-width="1.2"/><path d="M27 62C23 46 32 31 46 31C60 31 69 46 65 62" fill="none" stroke="#d9b866" stroke-opacity=".55" stroke-width=".8"/><path d="M30 66C28 84 34 100 38 108M62 66C64 84 58 100 54 108" fill="none" stroke="#d9b866" stroke-opacity=".4" stroke-width=".7"/><path d="M32 60C31 49 61 49 60 60C62 78 56 92 46 99C36 92 30 78 32 60Z" fill="#070402" stroke="#120b03" stroke-width=".8"/><path d="M33 56L46 62L45 66L34 60Z M59 56L46 62L47 66L58 60Z" fill="#c9a24a" stroke="#120b03" stroke-width=".5"/><path d="M36 76L40 86L44 76L46 88L48 76L52 86L56 76" fill="none" stroke="#6e5326" stroke-width=".9"/><g fill="url(#bl)" stroke="#120b03" stroke-width=".6"><circle cx="8" cy="14" r="3.4"/><circle cx="84" cy="14" r="3.4"/><circle cx="46" cy="3.5" r="3.4"/><circle cx="34" cy="115" r="3.2"/><circle cx="58" cy="115" r="3.2"/><circle cx="46" cy="107" r="2.6"/></g></g></symbol>
 <symbol id="ct" viewBox="0 0 60 14"><path d="M2 7C10 1 16 1 24 7C27 9 29 9 30 7C31 9 33 9 36 7C44 1 50 1 58 7C50 13 44 13 36 7M30 2L32.5 7L30 12L27.5 7Z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></symbol>
 </defs></svg>`;
@@ -1421,12 +1419,13 @@ function faceSVG(id){
   }else{
     const r=rankOf(id),s=suitOf(id),col=s===1||s===2?'#7d1016':'#0d0b0a',sy='#s'+s;
     const lab=RANKS[r];
-    const corner=`<g fill="${col}"><text x="11" y="${r===10?17:18}" font-size="${r===10?11:13}" font-family="Georgia,serif" text-anchor="middle">${lab}</text><use href="${sy}" x="6.5" y="20.5" width="9" height="9"/></g>`;
+    const big=r>=11;
+    const corner=`<g fill="${col}">${big?`<text x="11" y="19" font-size="17" font-weight="700" font-family="Georgia,serif" text-anchor="middle">${lab}</text><use href="${sy}" x="4" y="22" width="14" height="14"/>`:`<text x="11" y="${r===10?17:18}" font-size="${r===10?11:13}" font-family="Georgia,serif" text-anchor="middle">${lab}</text><use href="${sy}" x="6.5" y="20.5" width="9" height="9"/>`}</g>`;
     h='<use href="#fr"/>'+corner+`<g transform="rotate(180 50 70)">${corner}</g>`;
     if(r===1){
       h+=`<use href="${sy}" x="28" y="62" width="36" height="36" fill="${col}"/>`;
     }else if(r>=11){
-      h+=`<g fill="${col}" color="${col}"><use href="#ct" x="22" y="42" width="48" height="11"/><use href="#ct" x="22" y="87" width="48" height="11" transform="rotate(180 46 92.5)"/><text x="46" y="84" font-size="46" font-family="Georgia,'Times New Roman',serif" text-anchor="middle">${lab}</text></g>`;
+      h+=`<g fill="${col}" color="${col}"><use href="#ct" x="22" y="26" width="48" height="11"/><use href="#ct" x="22" y="107" width="48" height="11" transform="rotate(180 46 112.5)"/><text x="46" y="73" font-size="38" font-family="Georgia,'Times New Roman',serif" text-anchor="middle">${lab}</text><use href="${sy}" x="27" y="75" width="38" height="38"/></g>`;
     }else{
       const sz=r<=3?19:17;
       PIPS[r].forEach(([x,y])=>{h+=`<use href="${sy}" x="${x-sz/2}" y="${y-sz/2}" width="${sz}" height="${sz}" fill="${col}"${y>70?` transform="rotate(180 ${x} ${y})"`:''}/>`;});
@@ -1975,7 +1974,7 @@ function renderActions(){
   }
   let h='';
   if(canAct()){
-    if(ui.swapMode&&swapOK)h='🔄 <b>Swap:</b> select ONE of your cards to give away, then tap an opponent. You get a random card from them — blind!';
+    if(ui.swapMode&&swapOK)h='🔄 <b>Swap:</b> tap an opponent — you trade your <b>entire hand</b> with theirs!';
     else if(v.step==='draw')h=(hasSwap?'🔄 You can <b>Swap</b> now, or ':'👆 ')+'draw: tap the Stock, or tap the Discard pile to pick a card.';
     else if(mp.kind==='new')h='✓ Valid '+mp.type+' — tap <b>Meld</b>';
     else if(mp.kind==='steal')h='🃏 That is the card a Joker stands for — tap <b>Steal</b> (or tap that meld) to take the Joker!';
@@ -2201,7 +2200,7 @@ function renderModal(){
     <li>If nothing is left to draw the round is a stalemate (no points).</li></ul>
     <h3>🔄 Swap power card</h3><ul>
     <li>Win <b>2 rounds in a row</b> to earn one (you can hold only one at a time). It is not part of the deck.</li>
-    <li>Use it at the <b>start of your turn, before drawing</b>: tap <b>Swap</b>, select one of your cards, tap an opponent. You give that card and get a <b>random</b> card from them — blind. Everyone gets a message that a swap happened (no cards revealed).</li>
+    <li>Use it at the <b>start of your turn, before drawing</b>: tap <b>Swap</b>, then tap an opponent. You trade your <b>entire hand</b> with theirs — it doesn't matter how many cards each of you has. Everyone gets a message that a swap happened.</li>
     <li>On a turn you swap you can't go out or knock. The token is used up after one swap.</li></ul>
     <h3>Fun stuff</h3><ul><li>🔥 shows next to a player who has won 2+ rounds in a row · the <b>D</b> chip marks the dealer · 😀 sends a quick reaction · 💡 turns the hint glow (cards close to a meld) on or off.</li></ul>
     <h3>Disconnects &amp; the host</h3><ul>
@@ -2312,7 +2311,7 @@ function seatRect(s){
 }
 function swapFx(ev){
   const v=view,A=v.players[ev.from],B=v.players[ev.to];if(!A||!B)return;
-  toast('🔄 '+A.name+' used SWAP on '+B.name+' — a card changed hands!',3600);
+  toast('🔄 '+A.name+' swapped ALL cards with '+B.name+'!',3600);
   sfx.swoosh();
   const a=seatRect(ev.from),b=seatRect(ev.to);
   if(a&&b){ghostFly('<div class="back"></div>',a,b,{dur:750});ghostFly('<div class="back"></div>',b,a,{dur:750,delay:140});}
@@ -2351,9 +2350,8 @@ function effects(v){
 $('#opps').addEventListener('click',e=>{
   if(!ui.swapMode||!view||!canAct()||view.step!=='draw')return;
   const el=e.target.closest('.opp');if(!el)return;
-  if(ui.selected.size!==1)return deny('First select exactly ONE of your own cards to give away.');
-  const card=[...ui.selected][0],target=+el.dataset.seat;
-  ui.swapMode=false;ui.selected.clear();send({t:'swap',card,target});
+  const target=+el.dataset.seat;
+  ui.swapMode=false;ui.selected.clear();send({t:'swap',target});
 });
 (function reactUI(){
   const bar=$('#reactbar');
